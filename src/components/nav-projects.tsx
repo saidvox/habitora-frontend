@@ -14,12 +14,10 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  useSidebar,
 } from "@/components/ui/sidebar";
 
 export function NavProjects() {
   const location = useLocation();
-  const { state, isMobile } = useSidebar();
 
   const items = [
     { key: "dashboard", name: "Dashboard", url: "/app", icon: LayoutDashboard },
