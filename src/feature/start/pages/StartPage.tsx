@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { Plus, Building2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import Spinner from "@/components/spinner"
+import Spinner from "@/components/spinner";
 import { Button } from "@/components/ui/button";
 import HaloBackground from "../components/HaloBackground";
 import { useUsuarioPropiedades } from "../hooks/useUsuarioPropiedades";
@@ -29,6 +29,7 @@ export default function StartPage() {
   );
 
   useEffect(() => {
+    // Al entrar a /start limpiamos la propiedad actual
     clearCurrentProperty();
   }, [clearCurrentProperty]);
 
@@ -63,8 +64,11 @@ export default function StartPage() {
           return;
         }
 
+        // Guardamos la propiedad en el store
         setCurrentProperty(propiedad.id, propiedad.nombre);
-        navigate("/app");
+
+        // Navegamos a /app/:propertyId
+        navigate(`/app/${propiedad.id}`);
       }, 250);
     },
     [navigate, setCurrentProperty]
@@ -74,7 +78,6 @@ export default function StartPage() {
   // ⭐ ANIMACIÓN SUAVE AL VOLVER A INICIO
   // -----------------------------------------
   const goHomeSmooth = () => {
-    // fade-out suave
     document.body.style.transition = "opacity 0.25s ease";
     document.body.style.opacity = "0";
 

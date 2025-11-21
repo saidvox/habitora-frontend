@@ -1,4 +1,5 @@
 // src/components/current-property-switcher.tsx
+
 import { ChevronLeft } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -8,6 +9,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useNavigate } from "react-router-dom";
+import { useCurrentPropertyStore } from "@/store/useCurrentPropertyStore";
 
 type CurrentPropertySwitcherProps = {
   name: string;
@@ -19,7 +21,13 @@ export function CurrentPropertySwitcher({
   const { state, isMobile } = useSidebar();
   const navigate = useNavigate();
 
+  const clearCurrentProperty = useCurrentPropertyStore(
+    (state) => state.clearCurrentProperty
+  );
+
   const handleClick = () => {
+    // Limpiamos la propiedad actual y volvemos a la pantalla de selección
+    clearCurrentProperty();
     navigate("/start");
   };
 
@@ -31,7 +39,7 @@ export function CurrentPropertySwitcher({
       className={[
         "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left",
         "hover:bg-muted/70",
-        "transition-colors", // 👈 solo colores, nada de ancho ni transform
+        "transition-colors",
         "group-data-[collapsible=icon]:justify-center",
       ].join(" ")}
     >
@@ -58,7 +66,7 @@ export function CurrentPropertySwitcher({
     </div>
   );
 
-  // 👉 Si el sidebar está expandido o es mobile: sin tooltip (más simple)
+  // 👉 Si el sidebar está expandido o es mobile: sin tooltip
   if (state !== "collapsed" || isMobile) {
     return content;
   }

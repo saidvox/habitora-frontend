@@ -28,14 +28,16 @@ function AppRouterInner() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/auth" element={<AuthPage />} />
 
+        
         {/* PROTEGIDAS */}
+        // src/router/AppRouter.tsx // solo cambio la parte de /app
         <Route element={<ProtectedRoute />}>
           <Route path="/start" element={<StartPage />} />
           <Route path="/onboarding" element={<OnboardingForm />} />
           <Route path="/welcome" element={<WelcomeNewUser />} />
 
           {/* PANEL PRINCIPAL */}
-          <Route path="/app" element={<Layout />}>
+          <Route path="/app/:propertyId" element={<Layout />}>
             <Route index element={<AppHome />} />
             <Route path="habitaciones" element={<PropertiesPage />} />
             <Route path="inquilinos" element={<TenantsPage />} />

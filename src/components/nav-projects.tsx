@@ -7,7 +7,7 @@ import {
   CreditCard,
   Bell,
 } from "lucide-react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useParams } from "react-router-dom";
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -18,46 +18,58 @@ import {
 
 export function NavProjects() {
   const location = useLocation();
+  const { propertyId } = useParams();
+
+  // Si por alguna razón no hay propertyId, no mostramos el menú de gestión
+  if (!propertyId) {
+    return null;
+  }
+
+  const basePath = `/app/${propertyId}`;
 
   const items = [
-    { key: "dashboard", name: "Dashboard", url: "/app", icon: LayoutDashboard },
+    {
+      key: "dashboard",
+      name: "Dashboard",
+      url: basePath,
+      icon: LayoutDashboard,
+    },
     {
       key: "habitaciones",
       name: "Habitaciones",
-      url: "/app/habitaciones",
+      url: `${basePath}/habitaciones`,
       icon: Building2,
     },
     {
       key: "inquilinos",
       name: "Inquilinos",
-      url: "/app/inquilinos",
+      url: `${basePath}/inquilinos`,
       icon: Users2,
     },
     {
       key: "contratos",
       name: "Contratos",
-      url: "/app/contratos",
+      url: `${basePath}/contratos`,
       icon: FileText,
     },
     {
       key: "pagos",
       name: "Pagos",
-      url: "/app/pagos",
+      url: `${basePath}/pagos`,
       icon: CreditCard,
     },
     {
       key: "recordatorios",
       name: "Recordatorios",
-      url: "/app/recordatorios",
+      url: `${basePath}/recordatorios`,
       icon: Bell,
     },
   ];
 
-  // 👇 Dashboard solo es activo en /app exactamente
-  // y los demás en su ruta exacta o hijos
   const isActive = (url: string) => {
-    if (url === "/app") {
-      return location.pathname === "/app";
+    if (url === basePath) {
+      // Dashboard activo solo en /app/:propertyId exacto
+      return location.pathname === basePath;
     }
     return (
       location.pathname === url || location.pathname.startsWith(url + "/")
