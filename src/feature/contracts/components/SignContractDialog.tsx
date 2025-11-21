@@ -38,8 +38,9 @@ export function SignContractDialog({
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasStroke, setHasStroke] = useState(false);
 
-  const { mutate: uploadSignature, isPending } =
-    useUploadContractSignature(propertyId, {
+  const { mutate: uploadSignature, isPending } = useUploadContractSignature(
+    propertyId,
+    {
       onSuccess: () => {
         toast.success("Firma guardada correctamente");
         handleClear();
@@ -48,7 +49,8 @@ export function SignContractDialog({
       onError: () => {
         toast.error("No se pudo guardar la firma");
       },
-    });
+    }
+  );
 
   // Ajustar ancho del canvas al contenedor
   useEffect(() => {
@@ -71,6 +73,7 @@ export function SignContractDialog({
 
       const ctx = canvas.getContext("2d");
       if (ctx) {
+        ctx.setTransform(1, 0, 0, 1, 0, 0); // reset
         ctx.scale(ratio, ratio);
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, width, height);
@@ -196,6 +199,8 @@ export function SignContractDialog({
     if (!canvas) return;
 
     const dataUrl = canvas.toDataURL("image/png"); // data:image/png;base64,...
+    // El hook se encarga de llamar a:
+    // POST /api/propiedades/{propertyId}/contratos/{contractId}/firma
     uploadSignature({ contractId, base64: dataUrl });
   };
 
@@ -206,7 +211,7 @@ export function SignContractDialog({
           <DialogTitle>Firmar contrato</DialogTitle>
           <DialogDescription>
             Pide al inquilino que firme dentro del recuadro. La firma se
-            guardará como una imagen en el contrato.
+            guardará como imagen dentro del contrato.
           </DialogDescription>
         </DialogHeader>
 
@@ -225,7 +230,8 @@ export function SignContractDialog({
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            Firma con el mouse o con el dedo (si estás en un dispositivo táctil).
+            Firma con el mouse o con el dedo (si estás en un dispositivo
+            táctil).
           </p>
         </div>
 

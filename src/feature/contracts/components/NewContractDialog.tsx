@@ -32,14 +32,38 @@ type NewContractDialogProps = {
   propertyId: number;
 };
 
+type RoomOption = {
+  id: number;
+  label: string;
+  rent: number;
+};
+
+// Helper: suma meses a una fecha ISO (yyyy-mm-dd)
+function addMonthsToISO(startISO: string, months: number): string {
+  const [y, m, d] = startISO.split("-").map(Number);
+  const date = new Date(y, (m ?? 1) - 1, d ?? 1);
+  date.setMonth(date.getMonth() + months);
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+// Helper: 2025-11-21 -> 21/11/2025
+function formatISOToHuman(iso: string): string {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+}
+
 export function NewContractDialog({ propertyId }: NewContractDialogProps) {
   const [open, setOpen] = useState(false);
 
   const [tenantId, setTenantId] = useState<string>("");
   const [roomId, setRoomId] = useState<string>("");
   const [startDate, setStartDate] = useState<string>("");
-  const [endDate, setEndDate] = useState<string>("");
-  const [deposit, setDeposit] = useState<string>("");
+  const [durationMonths, setDurationMonths] = useState<number>(6);
 
   // Inquilinos disponibles (sin contrato ACTIVO)
   const {
@@ -55,17 +79,35 @@ export function NewContractDialog({ propertyId }: NewContractDialogProps) {
     isError: isErrorRooms,
   } = useAvailableRoomsByProperty(propertyId);
 
-  // Aplanar habitaciones para usarlas en el Select
-  const roomOptions = useMemo(
+  // Aplanar SOLO habitaciones con precio > 0 para usarlas en el Select
+  const roomOptions: RoomOption[] = useMemo(
     () =>
       roomsByFloor?.flatMap((floor) =>
-        floor.habitaciones.map((room) => ({
-          id: room.id,
-          label: `Hab. ${room.codigo} — Piso ${floor.numeroPiso}`,
-        }))
+        floor.habitaciones
+          .filter((room) => Number(room.precioRenta || 0) > 0)
+          .map((room) => {
+            const rent = Number(room.precioRenta);
+            return {
+              id: room.id,
+              rent,
+              label: `Hab. ${room.codigo} — Piso ${
+                floor.numeroPiso
+              } — S/ ${rent.toFixed(2)}`,
+            };
+          })
       ) ?? [],
     [roomsByFloor]
   );
+
+  const selectedRoom = roomOptions.find(
+    (r) => String(r.id) === roomId.toString()
+  );
+  const monthlyRent = selectedRoom?.rent ?? 0;
+  const depositAmount = monthlyRent; // aquí definimos que el depósito = 1 mes de renta
+
+  const endDateISO =
+    startDate && durationMonths ? addMonthsToISO(startDate, durationMonths) : "";
+  const endDateHuman = endDateISO ? formatISOToHuman(endDateISO) : "";
 
   const { mutate: createContract, isPending } = useCreateContract(propertyId, {
     onSuccess: () => {
@@ -73,8 +115,7 @@ export function NewContractDialog({ propertyId }: NewContractDialogProps) {
       setTenantId("");
       setRoomId("");
       setStartDate("");
-      setEndDate("");
-      setDeposit("");
+      setDurationMonths(6);
       setOpen(false);
     },
     onError: () => {
@@ -87,28 +128,35 @@ export function NewContractDialog({ propertyId }: NewContractDialogProps) {
 
     const inquilinoId = Number(tenantId);
     const habitacionId = Number(roomId);
-    const montoDeposito = Number(deposit || 0);
 
     if (!inquilinoId || !habitacionId) {
       toast.error("Inquilino y habitación son obligatorios");
       return;
     }
 
-    if (!startDate || !endDate) {
-      toast.error("Las fechas de inicio y fin son obligatorias");
+    if (!startDate) {
+      toast.error("La fecha de inicio es obligatoria");
       return;
     }
 
-    if (Number.isNaN(montoDeposito) || montoDeposito < 0) {
-      toast.error("Ingresa un monto de depósito válido");
+    if (!durationMonths || durationMonths <= 0) {
+      toast.error("Selecciona una duración válida");
       return;
     }
+
+    if (!selectedRoom) {
+      toast.error("Selecciona una habitación con precio válido");
+      return;
+    }
+
+    const fechaFin = addMonthsToISO(startDate, durationMonths);
+    const montoDeposito = depositAmount;
 
     createContract({
       inquilinoId,
       habitacionId,
       fechaInicio: startDate,
-      fechaFin: endDate,
+      fechaFin,
       montoDeposito,
     });
   };
@@ -129,97 +177,100 @@ export function NewContractDialog({ propertyId }: NewContractDialogProps) {
         </Button>
       </DialogTrigger>
 
-      <DialogContent>
+      <DialogContent className="sm:max-w-3xl w-full max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Nuevo contrato</DialogTitle>
+          <DialogTitle>Crear nuevo contrato</DialogTitle>
           <DialogDescription>
-            Crea un contrato asociando un inquilino a una habitación, con fechas
-            y depósito inicial.
+            Completa los datos del contrato de arrendamiento para esta
+            propiedad.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Inquilino */}
-          <div className="space-y-2">
-            <Label>Inquilino</Label>
-            <Select
-              value={tenantId}
-              onValueChange={setTenantId}
-              disabled={isLoadingTenants || isErrorTenants}
-            >
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={
-                    isLoadingTenants
-                      ? "Cargando inquilinos..."
-                      : isErrorTenants
-                      ? "Error al cargar inquilinos"
-                      : "Selecciona un inquilino"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {tenants && tenants.length > 0 ? (
-                  tenants.map((t) => (
-                    <SelectItem key={t.id} value={String(t.id)}>
-                      {t.nombreCompleto} — {t.numeroDni}
-                    </SelectItem>
-                  ))
-                ) : (
-                  <div className="px-3 py-2 text-sm text-muted-foreground">
-                    No hay inquilinos disponibles sin contrato activo.
-                  </div>
-                )}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              Solo se muestran inquilinos sin contrato activo.
-            </p>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Inquilino / Habitación */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Inquilino */}
+            <div className="space-y-2">
+              <Label>Inquilino *</Label>
+              <Select
+                value={tenantId}
+                onValueChange={setTenantId}
+                disabled={isLoadingTenants || isErrorTenants || isPending}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      isLoadingTenants
+                        ? "Cargando inquilinos..."
+                        : isErrorTenants
+                        ? "Error al cargar inquilinos"
+                        : "Selecciona un inquilino"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {tenants && tenants.length > 0 ? (
+                    tenants.map((t) => (
+                      <SelectItem key={t.id} value={String(t.id)}>
+                        {t.nombreCompleto} — {t.numeroDni}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">
+                      No hay inquilinos disponibles sin contrato activo.
+                    </div>
+                  )}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Solo se muestran inquilinos sin contrato activo.
+              </p>
+            </div>
+
+            {/* Habitación */}
+            <div className="space-y-2">
+              <Label>Habitación *</Label>
+              <Select
+                value={roomId}
+                onValueChange={setRoomId}
+                disabled={isLoadingRooms || isErrorRooms || isPending}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      isLoadingRooms
+                        ? "Cargando habitaciones..."
+                        : isErrorRooms
+                        ? "Error al cargar habitaciones"
+                        : "Selecciona una habitación con precio"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {roomOptions.length > 0 ? (
+                    roomOptions.map((room) => (
+                      <SelectItem key={room.id} value={String(room.id)}>
+                        {room.label}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">
+                      No hay habitaciones disponibles con precio para contrato.
+                    </div>
+                  )}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Solo se muestran habitaciones <strong>DISPONIBLES</strong> y con
+                renta mayor a S/ 0.00.
+              </p>
+            </div>
           </div>
 
-          {/* Habitación */}
-          <div className="space-y-2">
-            <Label>Habitación</Label>
-            <Select
-              value={roomId}
-              onValueChange={setRoomId}
-              disabled={isLoadingRooms || isErrorRooms}
-            >
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={
-                    isLoadingRooms
-                      ? "Cargando habitaciones..."
-                      : isErrorRooms
-                      ? "Error al cargar habitaciones"
-                      : "Selecciona una habitación disponible"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {roomOptions.length > 0 ? (
-                  roomOptions.map((room) => (
-                    <SelectItem key={room.id} value={String(room.id)}>
-                      {room.label}
-                    </SelectItem>
-                  ))
-                ) : (
-                  <div className="px-3 py-2 text-sm text-muted-foreground">
-                    No hay habitaciones disponibles para contrato.
-                  </div>
-                )}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              Solo se muestran habitaciones con estado{" "}
-              <strong>DISPONIBLE</strong>.
-            </p>
-          </div>
-
-          {/* Fechas */}
+          {/* Fecha de inicio + duración */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="startDate">Fecha de inicio</Label>
+              <Label htmlFor="startDate">Fecha de inicio *</Label>
               <Input
                 id="startDate"
                 type="date"
@@ -228,34 +279,77 @@ export function NewContractDialog({ propertyId }: NewContractDialogProps) {
                 disabled={isDisabled}
               />
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="endDate">Fecha de fin</Label>
-              <Input
-                id="endDate"
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+              <Label>Duración del contrato (meses) *</Label>
+              <Select
+                value={String(durationMonths)}
+                onValueChange={(value) => setDurationMonths(Number(value))}
                 disabled={isDisabled}
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona la duración" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="3">3 meses</SelectItem>
+                  <SelectItem value="6">6 meses</SelectItem>
+                  <SelectItem value="12">12 meses (1 año)</SelectItem>
+                  <SelectItem value="24">24 meses (2 años)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          {/* Depósito */}
-          <div className="space-y-2">
-            <Label htmlFor="deposit">Monto de depósito (S/)</Label>
-            <Input
-              id="deposit"
-              type="number"
-              min={0}
-              step="0.01"
-              value={deposit}
-              onChange={(e) => setDeposit(e.target.value)}
-              placeholder="Ej: 500.00"
-              disabled={isDisabled}
-            />
+          {/* Info fecha fin */}
+          <div className="rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground flex items-center gap-2">
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border text-xs">
+              i
+            </span>
+            {startDate && endDateHuman ? (
+              <span>
+                El contrato finalizará el{" "}
+                <span className="font-medium">{endDateHuman}</span>.
+              </span>
+            ) : (
+              <span>
+                Selecciona la fecha de inicio y la duración para calcular la
+                fecha de fin.
+              </span>
+            )}
           </div>
 
-          <DialogFooter className="mt-4">
+          {/* Resumen financiero */}
+          <div className="rounded-xl border bg-muted/40 px-4 py-3 space-y-2">
+            <p className="text-sm font-medium">
+              Resumen financiero del contrato
+            </p>
+
+            {selectedRoom ? (
+              <div className="space-y-1 text-sm">
+                <div className="flex items-center justify-between">
+                  <span>Renta mensual</span>
+                  <span className="font-semibold">
+                    S/ {monthlyRent.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Depósito requerido</span>
+                  <span className="font-semibold">
+                    S/ {depositAmount.toFixed(2)}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground pt-1">
+                  El depósito se registrará al crear el contrato.
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Selecciona una habitación para ver el resumen financiero.
+              </p>
+            )}
+          </div>
+
+          <DialogFooter className="mt-2">
             <Button
               type="button"
               variant="outline"
@@ -264,7 +358,7 @@ export function NewContractDialog({ propertyId }: NewContractDialogProps) {
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={isDisabled}>
+            <Button type="submit" disabled={isDisabled || !selectedRoom}>
               {isPending ? "Guardando..." : "Crear contrato"}
             </Button>
           </DialogFooter>
