@@ -1,5 +1,5 @@
 // src/feature/start/components/OnboardingForm.tsx
-import { useState, type FormEvent} from "react";
+import { useState, type FormEvent, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -17,6 +17,8 @@ import { Separator } from "@/components/ui/separator";
 import BuildingAnimation from "./BuildingAnimation";
 
 import { useOnboarding } from "../hooks/useOnboarding";
+import { useTheme } from "@/components/theme-provider";
+import { ArrowLeft } from "lucide-react";
 
 const MIN_PISOS = 1;
 const MAX_PISOS = 10;
@@ -30,10 +32,11 @@ export default function OnboardingForm() {
   const [direccion, setDireccion] = useState("");
   const [pisos, setPisos] = useState<number>(1);
   const [pisoResidencia, setPisoResidencia] = useState<number | null>(null);
-
   const [habitacionesPorPiso, setHabitacionesPorPiso] = useState<number[]>([1]);
 
   const navigate = useNavigate();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
 
   const { mutate: completarOnboarding, isPending } = useOnboarding({
     onSuccess: () => {
@@ -45,20 +48,20 @@ export default function OnboardingForm() {
     },
   });
 
-  const handlePisosChange = (rawValue: number) => {
+  // ========= Handlers =========
+
+  const handlePisosChange = useCallback((rawValue: number) => {
     const parsed = Number.isNaN(rawValue) ? MIN_PISOS : rawValue;
     const cantidad = Math.max(MIN_PISOS, Math.min(parsed, MAX_PISOS));
 
     setPisos(cantidad);
-
     setHabitacionesPorPiso((prev) =>
       Array.from({ length: cantidad }, (_, i) => prev[i] || MIN_ROOMS)
     );
-
     setPisoResidencia((prev) => (prev && prev > cantidad ? null : prev));
-  };
+  }, []);
 
-  const handleHabitacionChange = (index: number, rawValue: number) => {
+  const handleHabitacionChange = useCallback((index: number, rawValue: number) => {
     const parsed = Number.isNaN(rawValue) ? MIN_ROOMS : rawValue;
     const clamped = Math.max(MIN_ROOMS, Math.min(parsed, MAX_ROOMS));
 
@@ -67,7 +70,7 @@ export default function OnboardingForm() {
       next[index] = clamped;
       return next;
     });
-  };
+  }, []);
 
   const handleNext = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -90,207 +93,280 @@ export default function OnboardingForm() {
     });
   };
 
+  const handleBackToStart = () => navigate("/start");
+
+  // ========= Clases dependientes del tema (memo) =========
+
+  const {
+    headingClass,
+    subHeadingClass,
+    labelClass,
+    inputClass,
+    selectTriggerClass,
+    selectContentClass,
+    separatorClass,
+    rightTitleClass,
+    rightTextClass,
+    backChipClass,
+    backButtonClass,
+  } = useMemo(() => {
+    const heading = isDark ? "text-white" : "text-slate-900";
+    const subHeading = isDark ? "text-white/70" : "text-slate-600";
+    const labelBase = "text-xs uppercase tracking-wide font-medium";
+    const labelColor = isDark ? "text-white/70" : "text-black";
+
+    const inputBase =
+      "rounded-xl border text-sm transition-colors duration-150 " +
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 " +
+      "focus-visible:ring-slate-300 focus-visible:ring-offset-transparent";
+
+    const inputColors = isDark
+      ? "bg-black/40 border-white/20 text-white placeholder:text-white/40"
+      : "bg-white/90 border-slate-300 text-slate-900 placeholder:text-slate-400 " +
+        "shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur-md";
+
+    const selectTriggerColors = isDark
+      ? "bg-black/40 border-white/20 text-white"
+      : "bg-white/90 border-slate-300 text-slate-900 shadow-[0_10px_30px_rgba(15,23,42,0.08)]";
+
+    const selectContentColors = isDark
+      ? "bg-black/90 border-white/15 text-white"
+      : "bg-white border-slate-200 text-slate-900 shadow-lg";
+
+    const separatorColor = isDark ? "bg-white/10" : "bg-slate-200/80";
+
+    const rightTitle = isDark ? "text-white" : "text-slate-900";
+    const rightText = isDark ? "text-white/70" : "text-slate-600";
+
+    const backChip = isDark
+      ? "border-white/15 bg-black/40 text-white/80 hover:bg-black/70"
+      : "border-slate-200 bg-white/70 text-slate-700 hover:bg-white";
+
+    const backBtn = isDark
+      ? "border-white/30 text-white hover:bg-white/10"
+      : "border-slate-300 text-slate-800 hover:bg-slate-100";
+
+    return {
+      headingClass: heading,
+      subHeadingClass: subHeading,
+      labelClass: `${labelBase} ${labelColor}`,
+      inputClass: `${inputBase} ${inputColors}`,
+      selectTriggerClass: `${inputBase} ${selectTriggerColors}`,
+      selectContentClass: selectContentColors,
+      separatorClass: separatorColor,
+      rightTitleClass: rightTitle,
+      rightTextClass: rightText,
+      backChipClass: backChip,
+      backButtonClass: backBtn,
+    };
+  }, [isDark]);
+
+  // ========= Render =========
+
   return (
     <div
       className="
-        min-h-screen w-full
-        bg-gradient-to-br from-slate-50 to-slate-100
-        dark:from-gray-900 dark:to-gray-950
-        flex justify-center
+        w-full max-w-6xl mx-auto
+        grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]
+        gap-10 lg:gap-16
         items-start lg:items-center
-        px-4 py-8 sm:px-6 sm:py-10 lg:px-20 lg:py-16
+        px-4 py-6 sm:px-8 sm:py-8
       "
     >
-      <div
-        className="
-          w-full max-w-6xl mx-auto
-          grid grid-cols-1 lg:grid-cols-2
-          gap-10 lg:gap-16
-          items-start lg:items-center
-        "
-      >
-        {/* Columna izquierda */}
-        <div className="flex flex-col justify-start">
-          {step === 1 ? (
-            <form onSubmit={handleNext} className="space-y-8">
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
-                  Registro de Propiedad
-                </h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm">
-                  Completa los datos principales de tu inmueble.
-                </p>
+      {/* Columna izquierda: formularios */}
+      <div className="flex flex-col justify-start">
+        {/* Flecha para volver a Start */}
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={handleBackToStart}
+            className={`
+              inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium
+              border backdrop-blur-sm transition-colors
+              ${backChipClass}
+            `}
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Volver a tus propiedades
+          </button>
+        </div>
+
+        {step === 1 ? (
+          <form onSubmit={handleNext} className="space-y-8">
+            <div>
+              <h1 className={`text-2xl sm:text-3xl font-bold ${headingClass}`}>
+                Registro de Propiedad
+              </h1>
+              <p className={`text-sm mt-1 ${subHeadingClass}`}>
+                Completa los datos principales de tu inmueble.
+              </p>
+            </div>
+
+            <Separator className={`hidden sm:block ${separatorClass}`} />
+
+            <div className="space-y-5">
+              <div className="flex flex-col gap-2">
+                <Label className={labelClass}>Nombre de la propiedad</Label>
+                <Input
+                  className={inputClass}
+                  placeholder="Ejemplo: Casa Los Rosales"
+                  value={nombre}
+                  onChange={(e) => setNombre(e.target.value)}
+                  required
+                />
               </div>
 
-              <Separator className="hidden sm:block dark:bg-gray-700" />
+              <div className="flex flex-col gap-2">
+                <Label className={labelClass}>Dirección o referencia</Label>
+                <Input
+                  className={inputClass}
+                  placeholder="Ejemplo: Av. San Martín 123, Ica"
+                  value={direccion}
+                  onChange={(e) => setDireccion(e.target.value)}
+                />
+              </div>
 
-              <div className="space-y-5">
-                <div className="flex flex-col gap-2">
-                  <Label className="text-gray-700 dark:text-gray-300">
-                    ¿Cómo quieres llamar a tu propiedad?
-                  </Label>
-                  <Input
-                    className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100"
-                    placeholder="Ejemplo: Casa Los Rosales"
-                    value={nombre}
-                    onChange={(e) => setNombre(e.target.value)}
-                    required
-                  />
-                </div>
+              <div className="flex flex-col gap-2">
+                <Label className={labelClass}>
+                  Cantidad de pisos{" "}
+                  <span className={isDark ? "text-white/40" : "text-dark"}>
+                    ({MIN_PISOS}–{MAX_PISOS})
+                  </span>
+                </Label>
+                <Input
+                  type="number"
+                  min={MIN_PISOS}
+                  max={MAX_PISOS}
+                  value={pisos}
+                  onChange={(e) => handlePisosChange(Number(e.target.value))}
+                  className={inputClass}
+                />
+              </div>
 
-                <div className="flex flex-col gap-2">
-                  <Label className="text-gray-700 dark:text-gray-300">
-                    ¿Cuál es la dirección o referencia del inmueble?
-                  </Label>
-                  <Input
-                    className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100"
-                    placeholder="Ejemplo: Av. San Martín 123, Ica"
-                    value={direccion}
-                    onChange={(e) => setDireccion(e.target.value)}
-                  />
-                </div>
+              <div className="flex flex-col gap-2">
+                <Label className={labelClass}>Piso donde resides (dueño)</Label>
+                <Select
+                  onValueChange={(v) =>
+                    v === "none"
+                      ? setPisoResidencia(null)
+                      : setPisoResidencia(Number(v))
+                  }
+                  value={
+                    pisoResidencia === null ? "none" : pisoResidencia.toString()
+                  }
+                >
+                  <SelectTrigger className={`w-full ${selectTriggerClass}`}>
+                    <SelectValue placeholder="Selecciona un piso" />
+                  </SelectTrigger>
+                  <SelectContent className={selectContentClass}>
+                    <SelectItem value="none">
+                      No resido en esta propiedad
+                    </SelectItem>
+                    {Array.from({ length: pisos }, (_, i) => (
+                      <SelectItem key={i} value={(i + 1).toString()}>
+                        Piso {i + 1}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
-                <div className="flex flex-col gap-2">
-                  <Label className="text-gray-700 dark:text-gray-300">
-                    ¿Cuántos pisos tiene la propiedad?{" "}
-                    <span className="text-gray-400 dark:text-gray-500">
-                      ({MIN_PISOS}–{MAX_PISOS})
-                    </span>
+            <Button type="submit" className="w-full mt-4 sm:mt-8">
+              Siguiente →
+            </Button>
+          </form>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <div>
+              <h1 className={`text-2xl sm:text-3xl font-bold ${headingClass}`}>
+                Habitaciones por piso
+              </h1>
+              <p className={`text-sm mt-1 ${subHeadingClass}`}>
+                Configura las habitaciones para{" "}
+                <strong className={headingClass}>{nombre}</strong>{" "}
+                <span className={isDark ? "text-white/40" : "text-slate-400"}>
+                  ({MIN_ROOMS}–{MAX_ROOMS} por piso)
+                </span>
+              </p>
+            </div>
+
+            <Separator className={`hidden sm:block ${separatorClass}`} />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-5">
+              {Array.from({ length: pisos }, (_, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <Label
+                    className={`w-24 text-sm font-medium ${
+                      isDark ? "text-white/80" : "text-slate-700"
+                    }`}
+                  >
+                    Piso {i + 1}
                   </Label>
                   <Input
                     type="number"
-                    min={MIN_PISOS}
-                    max={MAX_PISOS}
-                    value={pisos}
-                    onChange={(e) => handlePisosChange(Number(e.target.value))}
-                    className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100"
+                    min={MIN_ROOMS}
+                    max={MAX_ROOMS}
+                    value={habitacionesPorPiso[i]}
+                    onChange={(e) =>
+                      handleHabitacionChange(i, Number(e.target.value))
+                    }
+                    className={inputClass}
                   />
                 </div>
+              ))}
+            </div>
 
-                <div className="flex flex-col gap-2">
-                  <Label className="text-gray-700 dark:text-gray-300">
-                    ¿En qué piso resides tú (el dueño)?
-                  </Label>
-                  <Select
-                    onValueChange={(v) =>
-                      v === "none"
-                        ? setPisoResidencia(null)
-                        : setPisoResidencia(Number(v))
-                    }
-                    value={
-                      pisoResidencia === null
-                        ? "none"
-                        : pisoResidencia.toString()
-                    }
-                  >
-                    <SelectTrigger className="w-full bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus-visible:ring-black dark:focus-visible:ring-white">
-                      <SelectValue placeholder="Selecciona un piso" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100">
-                      <SelectItem value="none">
-                        No resido en esta propiedad
-                      </SelectItem>
-                      {Array.from({ length: pisos }).map((_, i) => (
-                        <SelectItem key={i} value={(i + 1).toString()}>
-                          Piso {i + 1}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <Button type="submit" className="w-full mt-4 sm:mt-8">
-                Siguiente →
+            <div className="flex flex-col sm:flex-row justify-between gap-3 pt-4 sm:pt-6">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleBack}
+                className={`w-full sm:w-auto ${backButtonClass}`}
+                disabled={isPending}
+              >
+                ← Volver
               </Button>
-            </form>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-8">
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
-                  Habitaciones por piso
-                </h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm">
-                  Configura las habitaciones para{" "}
-                  <strong className="text-gray-800 dark:text-gray-200">
-                    {nombre}
-                  </strong>{" "}
-                  <span className="text-gray-400 dark:text-gray-500">
-                    ({MIN_ROOMS}–{MAX_ROOMS} por piso)
-                  </span>
-                </p>
-              </div>
+              <Button
+                type="submit"
+                className="w-full sm:w-auto"
+                disabled={isPending}
+              >
+                {isPending ? "Guardando..." : "Finalizar"}
+              </Button>
+            </div>
+          </form>
+        )}
+      </div>
 
-              <Separator className="hidden sm:block dark:bg-gray-700" />
+      {/* Columna derecha: building preview */}
+      <div className="flex items-center justify-center pt-6 lg:pt-0 mt-6 lg:mt-0">
+        <div className="px-2 sm:px-4 py-2 sm:py-6 w-full flex justify-center lg:justify-end">
+          <div className="w-full max-w-[620px] flex flex-col gap-4">
+            <div className="text-center lg:text-right">
+              <h2
+                className={`text-xl sm:text-2xl font-semibold ${rightTitleClass}`}
+              >
+                Tu propiedad
+              </h2>
+              <p className={`text-sm mt-1 ${rightTextClass}`}>
+                Vista previa de la estructura del edificio.
+              </p>
+            </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-5">
-                {Array.from({ length: pisos }).map((_, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <Label className="w-24 text-gray-700 dark:text-gray-300">
-                      Piso {i + 1}
-                    </Label>
-                    <Input
-                      type="number"
-                      min={MIN_ROOMS}
-                      max={MAX_ROOMS}
-                      value={habitacionesPorPiso[i]}
-                      onChange={(e) =>
-                        handleHabitacionChange(i, Number(e.target.value))
-                      }
-                      className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100"
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex flex-col sm:flex-row justify-between gap-3 pt-4 sm:pt-6">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleBack}
-                  className="w-full sm:w-auto dark:border-gray-700 dark:text-gray-100"
-                  disabled={isPending}
-                >
-                  ← Volver
-                </Button>
-                <Button
-                  type="submit"
-                  className="w-full sm:w-auto"
-                  disabled={isPending}
-                >
-                  {isPending ? "Guardando..." : "Finalizar"}
-                </Button>
-              </div>
-            </form>
-          )}
-        </div>
-
-        {/* Columna derecha */}
-        <div className="flex items-center justify-center border-t lg:border-t-0 lg:border-l border-gray-200 dark:border-gray-700 pt-6 lg:pt-0 mt-6 lg:mt-0">
-          <div className="px-2 sm:px-4 py-2 sm:py-6 w-full flex justify-center lg:justify-end">
-            <div className="w-full max-w-[620px] flex flex-col gap-4">
-              <div className="text-center lg:text-right">
-                <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-gray-100">
-                  Tu propiedad
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm">
-                  Vista previa de la estructura del edificio.
-                </p>
-              </div>
-
-              <div className="w-full overflow-x-auto md:overflow-visible pb-4">
-                <div className="min-w-[560px] flex justify-center lg:justify-end">
-                  <BuildingAnimation
-                    pisos={pisos}
-                    habitacionesPorPiso={habitacionesPorPiso}
-                    highlightFloor={pisoResidencia}
-                  />
-                </div>
+            <div className="w-full overflow-x-auto md:overflow-visible pb-4">
+              <div className="min-w-[560px] flex justify-center lg:justify-end">
+                <BuildingAnimation
+                  pisos={pisos}
+                  habitacionesPorPiso={habitacionesPorPiso}
+                  highlightFloor={pisoResidencia}
+                />
               </div>
             </div>
           </div>
         </div>
       </div>
+      {/* fin grid */}
     </div>
   );
 }

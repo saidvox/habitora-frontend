@@ -1,4 +1,5 @@
 // src/router/AppRouter.tsx
+
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 
@@ -17,6 +18,7 @@ import OnboardingForm from "@/feature/start/components/OnboardingForm";
 import WelcomeNewUser from "@/feature/start/components/WelcomeNewUser";
 
 import ProtectedRoute from "@/router/ProtectedRoute";
+import StartLayout from "@/feature/start/layout/StartLayout";
 
 function AppRouterInner() {
   const location = useLocation();
@@ -28,13 +30,14 @@ function AppRouterInner() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/auth" element={<AuthPage />} />
 
-        
         {/* PROTEGIDAS */}
-        // src/router/AppRouter.tsx // solo cambio la parte de /app
         <Route element={<ProtectedRoute />}>
-          <Route path="/start" element={<StartPage />} />
-          <Route path="/onboarding" element={<OnboardingForm />} />
-          <Route path="/welcome" element={<WelcomeNewUser />} />
+          {/* Layout con HaloBackground compartido */}
+          <Route element={<StartLayout />}>
+            <Route path="start" element={<StartPage />} />
+            <Route path="onboarding" element={<OnboardingForm />} />
+            <Route path="welcome" element={<WelcomeNewUser />} />
+          </Route>
 
           {/* PANEL PRINCIPAL */}
           <Route path="/app/:propertyId" element={<Layout />}>

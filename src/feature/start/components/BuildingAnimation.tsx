@@ -1,14 +1,31 @@
 import * as motion from "motion/react-client";
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 
 type BuildingAnimationProps = {
-  pisos: number;              // 1..10
+  pisos: number; // 1..10
   habitacionesPorPiso: number[]; // cantidad de habitaciones por piso
   className?: string;
   highlightFloor?: number | null; // 1 = piso más bajo (piso donde vive el dueño)
 };
 
-export default function BuildingAnimation({
+const MAX_WINDOWS = 8;
+const GAP_BETWEEN_FLOORS = 15;
+const INNER_TOP_OFFSET = 52;
+const INNER_BOTTOM_OFFSET = 70;
+
+const MAX_BUILDING_HEIGHT = 635;
+const MIN_INNER_HEIGHT = 220;
+const MAX_GROW_FLOORS = 4;
+
+const BUILDING_WIDTH = 520;
+const WINDOW_GAP = 6;
+
+const EASING: [number, number, number, number] = [0.22, 1, 0.36, 1];
+
+// indices 0..7 reutilizables
+const WINDOW_INDICES = Array.from({ length: MAX_WINDOWS }, (_, i) => i);
+
+function BuildingAnimationBase({
   pisos,
   habitacionesPorPiso,
   className = "",
@@ -16,63 +33,53 @@ export default function BuildingAnimation({
 }: BuildingAnimationProps) {
   const clampedPisos = Math.min(10, Math.max(1, pisos | 0));
 
-  const MAX_WINDOWS = 8;
+  // ===== Cálculos de layout memoizados =====
+  const { floors, windowsByFloor, buildingHeight, floorHeight, windowSize } =
+    useMemo(() => {
+      const f = Array.from({ length: clampedPisos }, (_, i) => i + 1);
 
-  const floors = useMemo(
-    () => Array.from({ length: clampedPisos }, (_, i) => i + 1),
-    [clampedPisos]
-  );
+      const map = new Map<number, number>();
+      f.forEach((floor) => {
+        const idx = floor - 1;
+        const rooms = Math.max(1, habitacionesPorPiso[idx] ?? 1);
+        map.set(floor, Math.min(MAX_WINDOWS, rooms));
+      });
 
-  const windowsByFloor = useMemo(() => {
-    const map = new Map<number, number>();
-    floors.forEach((floor) => {
-      const idx = floor - 1;
-      const rooms = Math.max(1, habitacionesPorPiso[idx] ?? 1);
-      map.set(floor, Math.min(MAX_WINDOWS, rooms));
-    });
-    return map;
-  }, [floors, habitacionesPorPiso]);
+      const maxInnerHeight =
+        MAX_BUILDING_HEIGHT - INNER_TOP_OFFSET - INNER_BOTTOM_OFFSET;
+      const floorsForHeight = Math.min(clampedPisos, MAX_GROW_FLOORS);
 
-  const gapBetweenFloors = 15;
-  const innerTopOffset = 52;
-  const innerBottomOffset = 70;
+      const t =
+        MAX_GROW_FLOORS <= 1
+          ? 1
+          : (floorsForHeight - 1) / (MAX_GROW_FLOORS - 1); // 0..1
 
-  const MAX_BUILDING_HEIGHT = 635;
-  const MAX_INNER_HEIGHT =
-    MAX_BUILDING_HEIGHT - innerTopOffset - innerBottomOffset;
+      const innerHeight =
+        MIN_INNER_HEIGHT + (maxInnerHeight - MIN_INNER_HEIGHT) * t;
 
-  const MIN_INNER_HEIGHT = 220;
+      const buildingH = INNER_TOP_OFFSET + INNER_BOTTOM_OFFSET + innerHeight;
 
-  const MAX_GROW_FLOORS: number = 4; // <- anotado como number para evitar el warning
-  const floorsForHeight = Math.min(clampedPisos, MAX_GROW_FLOORS);
+      const floorH =
+        (innerHeight - (clampedPisos - 1) * GAP_BETWEEN_FLOORS) / clampedPisos;
 
-  const t =
-    MAX_GROW_FLOORS <= 1
-      ? 1
-      : (floorsForHeight - 1) / (MAX_GROW_FLOORS - 1); // 0..1
+      const horizontalPadding = 40 * 2 + 16 * 2;
+      const availableWidth = BUILDING_WIDTH - horizontalPadding;
 
-  const innerHeight =
-    MIN_INNER_HEIGHT + (MAX_INNER_HEIGHT - MIN_INNER_HEIGHT) * t;
+      const maxByWidth =
+        (availableWidth - (MAX_WINDOWS - 1) * WINDOW_GAP) / MAX_WINDOWS;
+      const maxByHeight = floorH * 0.75;
+      const winSize = Math.max(14, Math.min(maxByWidth, maxByHeight));
 
-  const buildingHeight = innerTopOffset + innerBottomOffset + innerHeight;
+      return {
+        floors: f,
+        windowsByFloor: map,
+        buildingHeight: buildingH,
+        floorHeight: floorH,
+        windowSize: winSize,
+      };
+    }, [clampedPisos, habitacionesPorPiso]);
 
-  const floorHeight =
-    (innerHeight - (clampedPisos - 1) * gapBetweenFloors) / clampedPisos;
-
-  const windowGap = 6;
-  const BUILDING_WIDTH = 520;
-
-  const horizontalPadding = 40 * 2 + 16 * 2; // px-10 + px-4 aprox
-  const availableWidth = BUILDING_WIDTH - horizontalPadding;
-
-  const maxByWidth =
-    (availableWidth - (MAX_WINDOWS - 1) * windowGap) / MAX_WINDOWS;
-
-  const maxByHeight = floorHeight * 0.75;
-
-  const windowSize = Math.max(14, Math.min(maxByWidth, maxByHeight));
-
-  const easing: [number, number, number, number] = [0.22, 1, 0.36, 1];
+  // =========================================
 
   return (
     <div
@@ -96,7 +103,7 @@ export default function BuildingAnimation({
         }}
         initial={{ opacity: 0.2 }}
         animate={{ opacity: 0.35 }}
-        transition={{ duration: 1.2, ease: easing }}
+        transition={{ duration: 1.2, ease: EASING }}
       />
 
       {/* Poste decorativo (farol) */}
@@ -105,7 +112,7 @@ export default function BuildingAnimation({
         style={{ bottom: 18, right: 4 }}
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.3, ease: easing }}
+        transition={{ duration: 0.6, delay: 0.3, ease: EASING }}
       >
         {/* Luz */}
         <motion.div
@@ -155,7 +162,7 @@ export default function BuildingAnimation({
         style={{ width: BUILDING_WIDTH, height: buildingHeight }}
         initial={{ opacity: 0, y: 18, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.6, ease: easing }}
+        transition={{ duration: 0.6, ease: EASING }}
       >
         {/* Bordes y luces laterales */}
         <div className="pointer-events-none absolute inset-0">
@@ -170,18 +177,18 @@ export default function BuildingAnimation({
           style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.45)" }}
           initial={{ y: -10, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.5, ease: easing }}
+          transition={{ duration: 0.5, ease: EASING }}
         />
         <div className="absolute left-8 right-8 top-[34px] h-[2px] bg-white/12" />
 
         {/* PISOS */}
         <div
           className="absolute inset-x-0 px-10"
-          style={{ top: innerTopOffset, bottom: innerBottomOffset }}
+          style={{ top: INNER_TOP_OFFSET, bottom: INNER_BOTTOM_OFFSET }}
         >
           <div
             className="flex flex-col justify-end"
-            style={{ rowGap: gapBetweenFloors }}
+            style={{ rowGap: GAP_BETWEEN_FLOORS }}
           >
             {floors
               .slice()
@@ -204,12 +211,12 @@ export default function BuildingAnimation({
                       boxShadow:
                         "inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -1px 0 rgba(0,0,0,0.45)",
                     }}
-                    initial={{ opacity: 0, y: 14, filter: "blur(6px)" }}
-                    animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                    initial={{ opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
                     transition={{
                       duration: 0.45,
                       delay: 0.05 + indexFromTop * 0.05,
-                      ease: easing,
+                      ease: EASING,
                     }}
                   >
                     {/* Número de piso */}
@@ -234,35 +241,34 @@ export default function BuildingAnimation({
                     {/* Ventanas */}
                     <div
                       className="flex w-full h-full items-center justify-center"
-                      style={{ columnGap: windowGap }}
+                      style={{ columnGap: WINDOW_GAP }}
                     >
-                      {Array.from({ length: MAX_WINDOWS }).map(
-                        (_, colIndex) => {
-                          const isOn = colIndex < litCount;
-                          const isOwnerWindow =
-                            isOwnerFloor && ownerWindowIndex === colIndex;
+                      {WINDOW_INDICES.map((colIndex) => {
+                        const isOn = colIndex < litCount;
+                        const isOwnerWindow =
+                          isOwnerFloor && ownerWindowIndex === colIndex;
 
-                          const background = isOwnerWindow
-                            ? "linear-gradient(180deg, rgba(255,240,200,0.98), rgba(255,210,140,0.9))"
-                            : isOn
-                            ? "linear-gradient(180deg, rgba(235,235,235,0.9), rgba(210,210,210,0.55))"
-                            : "linear-gradient(180deg, rgba(155,160,170,0.28), rgba(115,120,130,0.18))";
+                        const background = isOwnerWindow
+                          ? "linear-gradient(180deg, rgba(255,240,200,0.98), rgba(255,210,140,0.9))"
+                          : isOn
+                          ? "linear-gradient(180deg, rgba(235,235,235,0.9), rgba(210,210,210,0.55))"
+                          : "linear-gradient(180deg, rgba(155,160,170,0.28), rgba(115,120,130,0.18))";
 
-                          const boxShadow = isOwnerWindow
-                            ? "0 0 14px rgba(255,220,150,0.7), inset 0 1px 0 rgba(255,255,255,0.8)"
-                            : isOn
-                            ? "0 0 10px rgba(230,230,230,0.32), inset 0 1px 0 rgba(255,255,255,0.70)"
-                            : "inset 0 1px 0 rgba(255,255,255,0.3)";
+                        const boxShadow = isOwnerWindow
+                          ? "0 0 14px rgba(255,220,150,0.7), inset 0 1px 0 rgba(255,255,255,0.8)"
+                          : isOn
+                          ? "0 0 10px rgba(230,230,230,0.32), inset 0 1px 0 rgba(255,255,255,0.70)"
+                          : "inset 0 1px 0 rgba(255,255,255,0.3)";
 
-                          const border = isOwnerWindow
-                            ? "1px solid rgba(255,230,180,0.95)"
-                            : "1px solid rgba(255,255,255,0.22)";
+                        const border = isOwnerWindow
+                          ? "1px solid rgba(255,230,180,0.95)"
+                          : "1px solid rgba(255,255,255,0.22)";
 
+                        // 🎯 Solo la ventana del dueño tiene animación infinita
+                        if (isOwnerWindow) {
                           return (
                             <motion.div
-                              key={`${floorNumber}-${colIndex}-${
-                                isOn ? "on" : "off"
-                              }`}
+                              key={`${floorNumber}-${colIndex}`}
                               className="rounded-[6px] overflow-hidden"
                               style={{
                                 width: windowSize,
@@ -271,43 +277,56 @@ export default function BuildingAnimation({
                                 boxShadow,
                                 border,
                               }}
-                              initial={
-                                isOn
-                                  ? { scale: 0.4, opacity: 0, y: 8 }
-                                  : { scale: 0.9, opacity: 0.45, y: 0 }
-                              }
-                              animate={
-                                isOn
-                                  ? { scale: 1, opacity: 1, y: 0 }
-                                  : { scale: 0.9, opacity: 0.45, y: 0 }
-                              }
+                              initial={{ scale: 0.4, opacity: 0, y: 8 }}
+                              animate={{
+                                scale: 1,
+                                opacity: [0.8, 1, 0.9, 1],
+                                y: 0,
+                              }}
                               transition={{
-                                duration: 0.3,
-                                delay:
-                                  0.08 + colIndex * 0.04 + indexFromTop * 0.03,
-                                ease: easing,
+                                duration: 2,
+                                repeat: Infinity,
+                                ease: [0.42, 0, 0.58, 1],
                               }}
                             >
                               <div className="w-full h-1/3 bg-white/10" />
-                              {isOn && (
-                                <motion.div
-                                  className="w-full h-full"
-                                  initial={{ opacity: 0.85 }}
-                                  animate={{ opacity: [0.7, 1, 0.8, 1] }}
-                                  transition={{
-                                    duration: isOwnerWindow
-                                      ? 2.0
-                                      : 2.3 + (colIndex % 3) * 0.3,
-                                    repeat: Infinity,
-                                    ease: [0.42, 0, 0.58, 1],
-                                  }}
-                                  style={{ background: "transparent" }}
-                                />
-                              )}
                             </motion.div>
                           );
                         }
-                      )}
+
+                        // Ventanas normales (sin animación infinita)
+                        return (
+                          <motion.div
+                            key={`${floorNumber}-${colIndex}`}
+                            className="rounded-[6px] overflow-hidden"
+                            style={{
+                              width: windowSize,
+                              height: windowSize,
+                              background,
+                              boxShadow,
+                              border,
+                            }}
+                            initial={
+                              isOn
+                                ? { scale: 0.4, opacity: 0, y: 8 }
+                                : { scale: 0.9, opacity: 0, y: 0 }
+                            }
+                            animate={
+                              isOn
+                                ? { scale: 1, opacity: 1, y: 0 }
+                                : { scale: 0.9, opacity: 0.45, y: 0 }
+                            }
+                            transition={{
+                              duration: 0.3,
+                              delay:
+                                0.08 + colIndex * 0.04 + indexFromTop * 0.03,
+                              ease: EASING,
+                            }}
+                          >
+                            <div className="w-full h-1/3 bg-white/10" />
+                          </motion.div>
+                        );
+                      })}
                     </div>
                   </motion.div>
                 );
@@ -318,3 +337,5 @@ export default function BuildingAnimation({
     </div>
   );
 }
+
+export default memo(BuildingAnimationBase);
