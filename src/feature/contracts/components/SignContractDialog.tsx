@@ -46,13 +46,10 @@ export function SignContractDialog({
         handleClear();
         onOpenChange(false);
       },
-      onError: () => {
-        toast.error("No se pudo guardar la firma");
-      },
+      onError: () => toast.error("No se pudo guardar la firma"),
     }
   );
 
-  // Ajustar ancho del canvas al contenedor
   useEffect(() => {
     if (!open) return;
     const canvas = canvasRef.current;
@@ -64,7 +61,7 @@ export function SignContractDialog({
 
       const ratio = window.devicePixelRatio || 1;
       const width = parent.clientWidth;
-      const height = 220; // alto fijo
+      const height = 220;
 
       canvas.width = width * ratio;
       canvas.height = height * ratio;
@@ -73,7 +70,7 @@ export function SignContractDialog({
 
       const ctx = canvas.getContext("2d");
       if (ctx) {
-        ctx.setTransform(1, 0, 0, 1, 0, 0); // reset
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.scale(ratio, ratio);
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, width, height);
@@ -85,31 +82,19 @@ export function SignContractDialog({
     return () => window.removeEventListener("resize", resize);
   }, [open]);
 
-  const getContext = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    return canvas.getContext("2d");
-  };
+  const getContext = () => canvasRef.current?.getContext("2d") ?? null;
 
   const getPosFromMouse = (e: MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
-    return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    };
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
 
   const getPosFromTouch = (e: TouchEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
-    const touch = e.touches[0];
-    return {
-      x: touch.clientX - rect.left,
-      y: touch.clientY - rect.top,
-    };
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    const t = e.touches[0];
+    return { x: t.clientX - rect.left, y: t.clientY - rect.top };
   };
 
   const handleMouseDown = (e: MouseEvent<HTMLCanvasElement>) => {
@@ -130,15 +115,13 @@ export function SignContractDialog({
 
     ctx.lineWidth = 2;
     ctx.lineCap = "round";
-    ctx.strokeStyle = "#000000";
+    ctx.strokeStyle = "#000";
     ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
     setHasStroke(true);
   };
 
-  const handleMouseUp = () => {
-    setIsDrawing(false);
-  };
+  const handleMouseUp = () => setIsDrawing(false);
 
   const handleTouchStart = (e: TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
@@ -160,7 +143,7 @@ export function SignContractDialog({
 
     ctx.lineWidth = 2;
     ctx.lineCap = "round";
-    ctx.strokeStyle = "#000000";
+    ctx.strokeStyle = "#000";
     ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
     setHasStroke(true);
@@ -186,21 +169,12 @@ export function SignContractDialog({
   };
 
   const handleSave = () => {
-    if (!contractId) {
-      toast.error("Contrato no válido");
-      return;
-    }
-    if (!hasStroke) {
-      toast.error("Dibuja la firma antes de guardar");
-      return;
-    }
+    if (!contractId) return toast.error("Contrato no válido");
+    if (!hasStroke) return toast.error("Dibuja la firma antes de guardar");
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const dataUrl = canvasRef.current?.toDataURL("image/png");
+    if (!dataUrl) return;
 
-    const dataUrl = canvas.toDataURL("image/png"); // data:image/png;base64,...
-    // El hook se encarga de llamar a:
-    // POST /api/propiedades/{propertyId}/contratos/{contractId}/firma
     uploadSignature({ contractId, base64: dataUrl });
   };
 
@@ -210,16 +184,15 @@ export function SignContractDialog({
         <DialogHeader>
           <DialogTitle>Firmar contrato</DialogTitle>
           <DialogDescription>
-            Pide al inquilino que firme dentro del recuadro. La firma se
-            guardará como imagen dentro del contrato.
+            Pide al inquilino que firme dentro del recuadro.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
-          <div className="rounded-md border border-dashed border-slate-300 bg-slate-50">
+          <div className="rounded-md border border-dashed bg-slate-50">
             <canvas
               ref={canvasRef}
-              className="w-full h-[220px] touch-none"
+              className="w-full h-[220px]"
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
@@ -230,36 +203,17 @@ export function SignContractDialog({
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            Firma con el mouse o con el dedo (si estás en un dispositivo
-            táctil).
+            Firma con mouse o dedo.
           </p>
         </div>
 
-        <DialogFooter className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-between">
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleClear}
-              disabled={isPending}
-            >
-              Limpiar
-            </Button>
-          </div>
-
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isPending}
-            >
-              Cancelar
-            </Button>
-            <Button type="button" onClick={handleSave} disabled={isPending}>
-              {isPending ? "Guardando..." : "Guardar firma"}
-            </Button>
-          </div>
+        <DialogFooter className="flex justify-between mt-4">
+          <Button variant="outline" onClick={handleClear} disabled={isPending}>
+            Limpiar
+          </Button>
+          <Button onClick={handleSave} disabled={isPending}>
+            {isPending ? "Guardando..." : "Guardar firma"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

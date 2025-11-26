@@ -5,13 +5,12 @@ import type {
   ContratosFilters,
   ContratoDetalle,
   CrearContratoPayload,
-  SubirFirmaContratoPayload,
   AvailableRoomsByFloor,
   Tenant,
   TenantsFilters,
 } from "../types";
 
-// Helper: limpia un dataURL y deja solo el base64
+// Helper: limpia el dataURL y deja solo el base64
 export const stripBase64Prefix = (value: string): string => {
   const commaIndex = value.indexOf(",");
   if (value.startsWith("data:image") && commaIndex !== -1) {
@@ -22,7 +21,6 @@ export const stripBase64Prefix = (value: string): string => {
 
 // --------- CONTRATOS ---------
 
-// GET /api/propiedades/{propiedadId}/contratos
 export async function getContractsByProperty(
   propertyId: number,
   filters?: ContratosFilters
@@ -39,10 +37,8 @@ export async function getContractsByProperty(
   return response.data;
 }
 
-// alias opcional en español
 export { getContractsByProperty as getContratosByPropiedad };
 
-// GET /api/propiedades/{propiedadId}/contratos/{contratoId}
 export async function getContractById(
   propertyId: number,
   contractId: number
@@ -53,7 +49,6 @@ export async function getContractById(
   return response.data;
 }
 
-// POST /api/propiedades/{propiedadId}/contratos
 export async function createContract(
   propertyId: number,
   payload: CrearContratoPayload
@@ -65,10 +60,8 @@ export async function createContract(
   return response.data;
 }
 
-// alias en español
 export { createContract as crearContrato };
 
-// PUT /api/propiedades/{propiedadId}/contratos/{contratoId}/finalizar
 export async function finalizeContract(
   propertyId: number,
   contractId: number
@@ -79,33 +72,46 @@ export async function finalizeContract(
   return response.data;
 }
 
-// alias en español
 export { finalizeContract as finalizarContrato };
 
-// POST /api/propiedades/{propiedadId}/contratos/{contratoId}/firma
-// Recibe base64 limpio o dataURL; siempre envía base64 limpio al backend.
+// ========== FIRMA DIGITAL (CORREGIDO) ==========
+
 export async function uploadContractSignature(
   propertyId: number,
   contractId: number,
   base64: string
 ): Promise<ContratoDetalle> {
-  const clean = stripBase64Prefix(base64);
+  const cleanBase64 = stripBase64Prefix(base64);
 
-  const payload: SubirFirmaContratoPayload = {
-    file: clean,
-  };
+  // Convertir base64 → Blob
+  const byteCharacters = atob(cleanBase64);
+  const byteNumbers = new Array(byteCharacters.length);
+
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+
+  const byteArray = new Uint8Array(byteNumbers);
+  const blob = new Blob([byteArray], { type: "image/png" });
+
+  // Crear FormData
+  const formData = new FormData();
+  formData.append("file", blob, "firma.png");
 
   const response = await axiosInstance.post<ContratoDetalle>(
     `/api/propiedades/${propertyId}/contratos/${contractId}/firma`,
-    payload
+    formData,
+    {
+      headers: { "Content-Type": "multipart/form-data" },
+    }
   );
+
   return response.data;
 }
 
-// alias en español → esto arregla el error de `subirFirmaContrato`
 export { uploadContractSignature as subirFirmaContrato };
 
-// GET /api/propiedades/{propiedadId}/contratos/{contratoId}/firma  (image/png)
+// GET: descargar firma
 export async function downloadContractSignatureAsBlob(
   propertyId: number,
   contractId: number
@@ -121,16 +127,13 @@ export async function downloadContractSignatureAsBlob(
 
 // --------- HABITACIONES DISPONIBLES ---------
 
-// GET /api/propiedades/{propiedadId}/habitaciones?estado=DISPONIBLE
 export async function getAvailableRoomsByProperty(
   propertyId: number
 ): Promise<AvailableRoomsByFloor[]> {
   const response = await axiosInstance.get<AvailableRoomsByFloor[]>(
     `/api/propiedades/${propertyId}/habitaciones`,
     {
-      params: {
-        estado: "DISPONIBLE",
-      },
+      params: { estado: "DISPONIBLE" },
     }
   );
   return response.data;
@@ -138,7 +141,6 @@ export async function getAvailableRoomsByProperty(
 
 // --------- INQUILINOS ---------
 
-// GET /api/propiedades/{propiedadId}/inquilinos
 export async function getTenantsByProperty(
   propertyId: number,
   filters?: TenantsFilters

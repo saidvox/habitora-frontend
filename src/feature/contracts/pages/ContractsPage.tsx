@@ -13,6 +13,8 @@ import type { ContratoEstado } from "../types";
 import { ContractsTable } from "../components/ContractsTable";
 import { NewContractDialog } from "../components/NewContractDialog";
 import { SignContractDialog } from "../components/SignContractDialog";
+import ViewContractDialog from "../components/ViewContractDialog";
+
 
 import { Input } from "@/components/ui/input";
 import {
@@ -23,7 +25,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// helper para parsear el id de propiedad
 const parsePropertyId = (raw?: string | null): number | null => {
   if (!raw) return null;
   const n = Number(raw);
@@ -34,7 +35,6 @@ const parsePropertyId = (raw?: string | null): number | null => {
 export function ContractsPage() {
   const params = useParams();
 
-  // soporta /app/:propertyId/contratos y /app/:propiedadId/contratos
   const routeId =
     (params.propertyId as string | undefined) ??
     (params.propiedadId as string | undefined);
@@ -44,14 +44,11 @@ export function ContractsPage() {
 
   const propertyId = routePropertyId ?? currentPropertyId ?? null;
 
-  // filtros
-  const [statusFilter, setStatusFilter] = useState<
-    ContratoEstado | undefined
-  >();
+  const [statusFilter, setStatusFilter] = useState<ContratoEstado | undefined>();
   const [search, setSearch] = useState("");
 
-  // estado para el dialog de firma
   const [signContractId, setSignContractId] = useState<number | null>(null);
+  const [viewContractId, setViewContractId] = useState<number | null>(null);
 
   if (!propertyId) {
     return (
@@ -59,8 +56,7 @@ export function ContractsPage() {
         <h1 className="text-2xl font-semibold mb-2">Contratos</h1>
         <p className="text-sm text-muted-foreground flex items-center gap-2">
           <AlertCircle className="w-4 h-4" />
-          No se encontró una propiedad válida. Selecciona una propiedad desde el
-          inicio.
+          No se encontró una propiedad válida.
         </p>
       </div>
     );
@@ -80,23 +76,18 @@ export function ContractsPage() {
     isPending: isFinalizing,
     variables: finalizeVars,
   } = useFinalizeContract(propertyId, {
-    onSuccess: () => {
-      toast.success("Contrato finalizado correctamente");
-    },
-    onError: () => {
-      toast.error("No se pudo finalizar el contrato");
-    },
+    onSuccess: () => toast.success("Contrato finalizado correctamente"),
+    onError: () => toast.error("No se pudo finalizar el contrato"),
   });
 
   const finalizingId = isFinalizing ? finalizeVars?.contractId ?? null : null;
 
   const handleViewDetails = (contractId: number) => {
-    // luego puedes abrir un dialog de detalle con useContractById
-    console.log("Ver contrato", contractId);
+    console.log("Opening contract view for ID:", contractId);
+    setViewContractId(contractId);
   };
 
   const handleSignContract = (contractId: number) => {
-    // abrimos el dialog de firma para este contrato
     setSignContractId(contractId);
   };
 
@@ -126,34 +117,27 @@ export function ContractsPage() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Contratos</h1>
           <p className="text-sm text-muted-foreground">
-            Gestiona los contratos activos y cancelados de esta propiedad.
+            Gestiona los contratos de esta propiedad.
           </p>
         </div>
 
-        {/* Botón para crear contrato */}
         <NewContractDialog propertyId={propertyId} />
       </div>
 
-      {/* Filtros */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
         <div className="flex gap-3 flex-wrap">
           <Select
             value={statusFilter ?? "ALL"}
-            onValueChange={(value) => {
-              if (value === "ALL") {
-                setStatusFilter(undefined);
-              } else {
-                setStatusFilter(value as ContratoEstado);
-              }
-            }}
+            onValueChange={(v) =>
+              setStatusFilter(v === "ALL" ? undefined : (v as ContratoEstado))
+            }
           >
             <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Estado" />
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">Todos</SelectItem>
@@ -171,7 +155,6 @@ export function ContractsPage() {
         </div>
       </div>
 
-      {/* Tabla */}
       <ContractsTable
         contracts={contracts ?? []}
         onViewDetails={handleViewDetails}
@@ -180,13 +163,21 @@ export function ContractsPage() {
         finalizingId={finalizingId}
       />
 
-      {/* Dialog de firma */}
       <SignContractDialog
         propertyId={propertyId}
         contractId={signContractId}
         open={signContractId !== null}
-        onOpenChange={(open) => {
-          if (!open) setSignContractId(null);
+        onOpenChange={(open) => !open && setSignContractId(null)}
+      />
+
+      <ViewContractDialog
+        propertyId={propertyId}
+        contractId={viewContractId}
+        open={viewContractId !== null}
+        onOpenChange={(open) => !open && setViewContractId(null)}
+        onSign={(id) => {
+          setViewContractId(null);
+          setSignContractId(id);
         }}
       />
     </div>

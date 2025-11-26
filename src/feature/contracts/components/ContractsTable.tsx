@@ -20,11 +20,10 @@ type ContractsTableProps = {
   finalizingId?: number | null;
 };
 
-// Asegúrate de que ContratoListado tenga:  tieneFirma: boolean
 const getStatusBadge = (estado: string, tieneFirma: boolean) => {
   if (estado === "CANCELADO") {
     return (
-      <Badge className="bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-900/40 dark:text-slate-300">
+      <Badge className="bg-slate-100 text-slate-700 border border-slate-200">
         Cancelado
       </Badge>
     );
@@ -32,7 +31,7 @@ const getStatusBadge = (estado: string, tieneFirma: boolean) => {
 
   if (estado === "ACTIVO" && !tieneFirma) {
     return (
-      <Badge className="bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-200">
+      <Badge className="bg-amber-100 text-amber-800 border border-amber-200">
         Activo (sin firmar)
       </Badge>
     );
@@ -40,7 +39,7 @@ const getStatusBadge = (estado: string, tieneFirma: boolean) => {
 
   if (estado === "ACTIVO" && tieneFirma) {
     return (
-      <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300">
+      <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200">
         Activo (firmado)
       </Badge>
     );
@@ -65,10 +64,10 @@ export function ContractsTable({
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white dark:bg-slate-900 dark:border-slate-800 overflow-hidden">
+    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
       <Table>
         <TableHeader>
-          <TableRow className="bg-slate-50 dark:bg-slate-900/60">
+          <TableRow className="bg-slate-50">
             <TableHead>Estado</TableHead>
             <TableHead>Inquilino</TableHead>
             <TableHead>DNI</TableHead>
@@ -94,6 +93,7 @@ export function ContractsTable({
                 <TableCell>{c.fechaInicio}</TableCell>
                 <TableCell>{c.fechaFin}</TableCell>
                 <TableCell>{c.montoDeposito.toFixed(2)}</TableCell>
+
                 <TableCell className="text-right space-x-2">
                   <Button
                     size="sm"

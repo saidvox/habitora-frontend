@@ -6,11 +6,13 @@ import type { AuthUser } from "@/feature/auth/types";
 type AuthState = {
   user: AuthUser | null;
   isAuthenticated: boolean;
+  token: string | null;
 
   // acciones
   setUser: (user: AuthUser) => void;
   setUserId: (id: number) => void;
   setAuthenticated: (value: boolean) => void;
+  setToken: (token: string | null) => void;
   logout: () => void;
 };
 
@@ -19,6 +21,7 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       isAuthenticated: false,
+      token: null,
 
       // Guardar toda la info del usuario y marcarlo como autenticado
       setUser: (user) =>
@@ -47,12 +50,39 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: value,
         })),
 
+      setToken: (token) =>
+        set((state) => {
+          // persist token to localStorage for axios init
+          try {
+            if (token) {
+              localStorage.setItem("habitora-access-token", token);
+            } else {
+              localStorage.removeItem("habitora-access-token");
+            }
+          } catch (e) {
+            // ignore
+          }
+
+          return {
+            ...state,
+            token,
+          };
+        }),
+
       // Cerrar sesión correctamente
-      logout: () =>
+      logout: () => {
+        try {
+          localStorage.removeItem("habitora-access-token");
+        } catch (e) {
+          // ignore
+        }
+
         set({
           user: null,
           isAuthenticated: false,
-        }),
+          token: null,
+        });
+      },
     }),
     {
       name: "habitora-auth", // clave del localStorage

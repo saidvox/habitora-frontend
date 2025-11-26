@@ -15,7 +15,9 @@ export type LoginRequest = {
 };
 
 // Por ahora el backend devuelve solo un String ("Registro exitoso", "Login exitoso")
-export type AuthMessageResponse = string;
+// Backend now devuelve un objeto con el accessToken
+// Puede ser un mensaje (string) o el objeto con accessToken que devuelve el backend
+export type AuthMessageResponse = string | { accessToken: string };
 
 // Usuario autenticado básico que guardaremos en el store
 export type AuthUser = {

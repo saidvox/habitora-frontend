@@ -1,6 +1,6 @@
 // src/feature/contracts/hooks/useContractById.ts
 import { useQuery } from "@tanstack/react-query";
-import { getContratoById } from "../api/contracts";
+import { getContractById } from "../api/contracts";
 import type { ContratoDetalle } from "../types";
 
 export const useContractById = (
@@ -12,6 +12,6 @@ export const useContractById = (
     enabled:
       !!propertyId && propertyId > 0 && !!contractId && contractId > 0,
     queryFn: () =>
-      getContratoById(propertyId as number, contractId as number),
+      getContractById(propertyId as number, contractId as number),
   });
 };
