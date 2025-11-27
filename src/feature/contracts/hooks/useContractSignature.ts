@@ -1,6 +1,6 @@
 // src/feature/contracts/hooks/useContractSignature.ts
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { downloadContractSignatureAsBlob } from "../api/contracts";
 
 export const useContractSignature = (
@@ -8,58 +8,66 @@ export const useContractSignature = (
     contractId: number | null,
     enabled: boolean
 ) => {
-    const previousUrlRef = useRef<string | null>(null);
+    const [blobUrl, setBlobUrl] = useState<string | null>(null);
 
-    const query = useQuery({
-        queryKey: ["contracts", "signature", propertyId, contractId],
+    // Query para obtener el Blob (este SÍ se cachea)
+    const blobQuery = useQuery({
+        queryKey: ["contracts", "signature", "blob", propertyId, contractId],
         enabled: enabled && !!contractId,
         queryFn: async () => {
-            console.log("🔍 Fetching signature:", { propertyId, contractId, enabled });
+            console.log("🔍 Fetching signature blob:", { propertyId, contractId });
             if (!contractId) throw new Error("Contract ID required");
             
-            try {
-                // Limpiar URL anterior si existe
-                if (previousUrlRef.current) {
-                    console.log("🧹 Revoking previous URL:", previousUrlRef.current);
-                    URL.revokeObjectURL(previousUrlRef.current);
-                    previousUrlRef.current = null;
-                }
-
-                const blob = await downloadContractSignatureAsBlob(
-                    propertyId,
-                    contractId
-                );
-                console.log("✅ Blob received:", { size: blob.size, type: blob.type });
-                
-                if (blob.size === 0) {
-                    throw new Error("Empty blob received");
-                }
-                
-                const url = URL.createObjectURL(blob);
-                console.log("✅ Blob URL created:", url);
-                previousUrlRef.current = url;
-                return url;
-            } catch (error) {
-                console.error("❌ Error fetching signature:", error);
-                throw error;
+            const blob = await downloadContractSignatureAsBlob(
+                propertyId,
+                contractId
+            );
+            console.log("✅ Blob received:", { size: blob.size, type: blob.type });
+            
+            if (blob.size === 0) {
+                throw new Error("Empty blob received");
             }
+            
+            return blob;
         },
-        staleTime: Infinity, // No revalidar automáticamente
-        gcTime: 1000 * 60 * 10, // 10 minutos
+        staleTime: 1000 * 60 * 5, // Cachear blob por 5 minutos
+        gcTime: 1000 * 60 * 10, // Mantener en memoria 10 minutos
         retry: 2,
         retryDelay: 1000,
     });
 
-    // Limpiar el blob URL cuando el componente se desmonte
+    // Crear y limpiar blob URL basado en el blob
     useEffect(() => {
-        return () => {
-            if (previousUrlRef.current) {
-                console.log("🧹 Cleanup: Revoking URL on unmount:", previousUrlRef.current);
-                URL.revokeObjectURL(previousUrlRef.current);
-                previousUrlRef.current = null;
+        if (blobQuery.data) {
+            // Limpiar URL anterior si existe
+            if (blobUrl) {
+                console.log("🧹 Revoking old blob URL:", blobUrl);
+                URL.revokeObjectURL(blobUrl);
             }
-        };
-    }, []);
 
-    return query;
+            // Crear nueva URL
+            const url = URL.createObjectURL(blobQuery.data);
+            console.log("✅ Blob URL created:", url);
+            setBlobUrl(url);
+
+            // Cleanup al desmontar o cuando cambie el blob
+            return () => {
+                console.log("🧹 Cleanup: Revoking blob URL:", url);
+                URL.revokeObjectURL(url);
+            };
+        } else {
+            // Si no hay blob, limpiar la URL
+            if (blobUrl) {
+                URL.revokeObjectURL(blobUrl);
+                setBlobUrl(null);
+            }
+        }
+    }, [blobQuery.data]);
+
+    return {
+        data: blobUrl,
+        isLoading: blobQuery.isLoading,
+        error: blobQuery.error,
+        isError: blobQuery.isError,
+    };
 };
