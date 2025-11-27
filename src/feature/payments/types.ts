@@ -38,4 +38,5 @@ export interface PagoCreateRequest {
   fechaPago: string; // yyyy-MM-dd
   monto: number;
   metodo: MetodoPago;
+  firmaBase64?: string; // Firma digital del inquilino
 }

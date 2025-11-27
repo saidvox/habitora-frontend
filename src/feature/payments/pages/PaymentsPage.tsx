@@ -1,17 +1,25 @@
 // src/feature/payments/pages/PaymentsPage.tsx
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useCurrentPropertyStore } from "@/store/useCurrentPropertyStore";
 import { useFacturas } from "../hooks/useFacturas";
 import { FacturasTable } from "../components/FacturasTable";
 import { RegistrarPagoDialog } from "../components/RegistrarPagoDialog";
 import Spinner from "@/components/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { Factura, EstadoFactura } from "../types";
-import { AlertCircle, CheckCircle2, Clock } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock, Users } from "lucide-react";
 
 export const PaymentsPage = () => {
   const currentPropertyId = useCurrentPropertyStore((s) => s.currentPropertyId);
   const [filtroEstado, setFiltroEstado] = useState<EstadoFactura | undefined>(undefined);
+  const [filtroInquilino, setFiltroInquilino] = useState<string>("todos");
   const [facturaSeleccionada, setFacturaSeleccionada] = useState<Factura | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -30,10 +38,27 @@ export const PaymentsPage = () => {
   // Filtrar facturas canceladas
   const facturasActivas = facturas?.filter((f) => f.estado !== "CANCELADA") || [];
 
-  // Estadísticas
-  const facturasPendientes = facturasActivas.filter((f) => !f.esPagada);
-  const facturasVencidas = facturasActivas.filter((f) => f.esVencida && !f.esPagada);
-  const facturasPagadas = facturasActivas.filter((f) => f.esPagada);
+  // Obtener lista única de inquilinos
+  const inquilinos = useMemo(() => {
+    const uniqueInquilinos = new Map<string, string>();
+    facturasActivas.forEach((f) => {
+      if (!uniqueInquilinos.has(f.inquilinoNombre)) {
+        uniqueInquilinos.set(f.inquilinoNombre, f.inquilinoNombre);
+      }
+    });
+    return Array.from(uniqueInquilinos.values()).sort();
+  }, [facturasActivas]);
+
+  // Aplicar filtro de inquilino
+  const facturasFiltradas = useMemo(() => {
+    if (filtroInquilino === "todos") return facturasActivas;
+    return facturasActivas.filter((f) => f.inquilinoNombre === filtroInquilino);
+  }, [facturasActivas, filtroInquilino]);
+
+  // Estadísticas (basadas en las facturas filtradas)
+  const facturasPendientes = facturasFiltradas.filter((f) => !f.esPagada);
+  const facturasVencidas = facturasFiltradas.filter((f) => f.esVencida && !f.esPagada);
+  const facturasPagadas = facturasFiltradas.filter((f) => f.esPagada);
   const totalPendiente = facturasPendientes.reduce((sum, f) => sum + f.montoRenta, 0);
 
   const formatMonto = (monto: number) => {
@@ -62,11 +87,33 @@ export const PaymentsPage = () => {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Pagos</h1>
-        <p className="text-sm text-muted-foreground">
-          Gestiona las facturas y pagos de alquiler
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Pagos</h1>
+          <p className="text-sm text-muted-foreground">
+            Gestiona las facturas y pagos de alquiler
+          </p>
+        </div>
+
+        {/* Filtro por inquilino */}
+        {inquilinos.length > 0 && (
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <Select value={filtroInquilino} onValueChange={setFiltroInquilino}>
+              <SelectTrigger className="w-[240px]">
+                <SelectValue placeholder="Filtrar por inquilino" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos los inquilinos</SelectItem>
+                {inquilinos.map((inquilino) => (
+                  <SelectItem key={inquilino} value={inquilino}>
+                    {inquilino}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       {/* Estadísticas */}
@@ -124,7 +171,7 @@ export const PaymentsPage = () => {
         </TabsList>
 
         <TabsContent value="todas" className="mt-4">
-          <FacturasTable facturas={facturasActivas} onRegistrarPago={handleRegistrarPago} />
+          <FacturasTable facturas={facturasFiltradas} onRegistrarPago={handleRegistrarPago} />
         </TabsContent>
         <TabsContent value="pendientes" className="mt-4">
           <FacturasTable facturas={facturasPendientes} onRegistrarPago={handleRegistrarPago} />

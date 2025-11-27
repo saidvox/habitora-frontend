@@ -1,5 +1,5 @@
 // src/feature/payments/components/RegistrarPagoDialog.tsx
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -18,8 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PenTool, Trash2 } from "lucide-react";
 import type { Factura, MetodoPago } from "../types";
 import { useRegistrarPago } from "../hooks/useRegistrarPago";
+import SignatureCanvas from "react-signature-canvas";
 
 interface RegistrarPagoDialogProps {
   open: boolean;
@@ -38,11 +40,25 @@ export function RegistrarPagoDialog({
     new Date().toISOString().split("T")[0]
   );
   const [metodo, setMetodo] = useState<MetodoPago>("EFECTIVO");
+  const signatureRef = useRef<SignatureCanvas>(null);
 
   const { mutate: registrarPago, isPending } = useRegistrarPago();
 
+  const handleClearSignature = () => {
+    signatureRef.current?.clear();
+  };
+
   const handleSubmit = () => {
     if (!factura) return;
+
+    // Validar que haya firma
+    if (!signatureRef.current || signatureRef.current.isEmpty()) {
+      alert("Por favor, firma el comprobante de pago");
+      return;
+    }
+
+    // Obtener firma en base64
+    const firmaBase64 = signatureRef.current.toDataURL();
 
     registrarPago(
       {
@@ -52,6 +68,7 @@ export function RegistrarPagoDialog({
           fechaPago,
           monto: factura.montoRenta,
           metodo,
+          firmaBase64,
         },
       },
       {
@@ -60,6 +77,7 @@ export function RegistrarPagoDialog({
           // Reset form
           setFechaPago(new Date().toISOString().split("T")[0]);
           setMetodo("EFECTIVO");
+          signatureRef.current?.clear();
         },
       }
     );
@@ -129,6 +147,39 @@ export function RegistrarPagoDialog({
                 <SelectItem value="PLIN">Plin</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Firma del inquilino */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-2">
+                <PenTool className="h-4 w-4" />
+                Firma del inquilino *
+              </Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleClearSignature}
+                className="h-8 gap-1"
+              >
+                <Trash2 className="h-3 w-3" />
+                Limpiar
+              </Button>
+            </div>
+            <div className="rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/20 p-1">
+              <SignatureCanvas
+                ref={signatureRef}
+                canvasProps={{
+                  className: "w-full h-32 rounded bg-background cursor-crosshair",
+                }}
+                backgroundColor="transparent"
+                penColor="currentColor"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Firma del inquilino confirmando la recepción del pago
+            </p>
           </div>
         </div>
 
