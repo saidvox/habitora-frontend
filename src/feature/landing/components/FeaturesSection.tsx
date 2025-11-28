@@ -46,18 +46,21 @@ const features = [
 export function FeaturesSection() {
   return (
     <section className="py-10">
-      <h2 className="text-2xl md:text-3xl font-bold text-center text-foreground mb-8">
-        Todo lo que necesitas en un solo lugar
-      </h2>
+      <div className="text-center mb-8">
+        <h2 data-aos="fade-up" className="text-2xl md:text-3xl font-bold text-foreground">
+          Todo lo que necesitas en un solo lugar
+        </h2>
+      </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {features.map((feature) => (
-          <FeatureCard
-            key={feature.title}
+        {features.map((feature, index) => (
+          <div key={feature.title} data-aos="fade-up" data-aos-delay={index * 100}>
+            <FeatureCard
             title={feature.title}
             description={feature.description}
             icon={feature.icon}
           />
+          </div>
         ))}
       </div>
     </section>
