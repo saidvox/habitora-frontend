@@ -1,18 +1,11 @@
 // src/feature/start/components/OnboardingForm.tsx
-import { useState, type FormEvent, useMemo, useCallback } from "react";
+import { useState, type FormEvent, useMemo, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import BuildingAnimation from "./BuildingAnimation";
 
@@ -36,8 +29,9 @@ export default function OnboardingForm({ onComplete, onBack }: OnboardingFormPro
   const [nombre, setNombre] = useState("");
   const [direccion, setDireccion] = useState("");
   const [pisos, setPisos] = useState<number>(1);
-  const [pisoResidencia, setPisoResidencia] = useState<number | null>(null);
   const [habitacionesPorPiso, setHabitacionesPorPiso] = useState<number[]>([1]);
+  const [shakePisos, setShakePisos] = useState(false);
+  const [shakeRooms, setShakeRooms] = useState<Record<number, boolean>>({});
 
   const navigate = useNavigate();
   const { theme } = useTheme();
@@ -67,16 +61,27 @@ export default function OnboardingForm({ onComplete, onBack }: OnboardingFormPro
     const parsed = Number.isNaN(rawValue) ? MIN_PISOS : rawValue;
     const cantidad = Math.max(MIN_PISOS, Math.min(parsed, MAX_PISOS));
 
+    if (parsed > MAX_PISOS || cantidad === MAX_PISOS) {
+      toast.info(`Has alcanzado el máximo de pisos (${MAX_PISOS}).`);
+      setShakePisos(true);
+      setTimeout(() => setShakePisos(false), 400);
+    }
+
     setPisos(cantidad);
     setHabitacionesPorPiso((prev) =>
       Array.from({ length: cantidad }, (_, i) => prev[i] || MIN_ROOMS)
     );
-    setPisoResidencia((prev) => (prev && prev > cantidad ? null : prev));
   }, []);
 
   const handleHabitacionChange = useCallback((index: number, rawValue: number) => {
     const parsed = Number.isNaN(rawValue) ? MIN_ROOMS : rawValue;
     const clamped = Math.max(MIN_ROOMS, Math.min(parsed, MAX_ROOMS));
+
+    if (parsed > MAX_ROOMS || clamped === MAX_ROOMS) {
+      toast.info(`Has alcanzado el máximo de habitaciones por piso (${MAX_ROOMS}).`);
+      setShakeRooms((prev) => ({ ...prev, [index]: true }));
+      setTimeout(() => setShakeRooms((prev) => ({ ...prev, [index]: false })), 400);
+    }
 
     setHabitacionesPorPiso((prev) => {
       const next = [...prev];
@@ -84,6 +89,45 @@ export default function OnboardingForm({ onComplete, onBack }: OnboardingFormPro
       return next;
     });
   }, []);
+
+  // Escuchar eventos del preview para modificar pisos/habitaciones de forma interactiva
+  useEffect(() => {
+    const onChange = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail || typeof detail !== "object") return;
+      if (detail.type === "add-floor") {
+        const next = Math.min(pisos + 1, MAX_PISOS);
+        if (next === MAX_PISOS && pisos !== MAX_PISOS) {
+          toast.info(`Has alcanzado el máximo de pisos (${MAX_PISOS}).`);
+        }
+        setPisos(next);
+        setHabitacionesPorPiso((prev) => Array.from({ length: next }, (_, i) => prev[i] || MIN_ROOMS));
+      } else if (detail.type === "remove-floor") {
+        const next = Math.max(pisos - 1, MIN_PISOS);
+        setPisos(next);
+        setHabitacionesPorPiso((prev) => prev.slice(0, next));
+      } else if (detail.type === "add-room") {
+        const idx = Number(detail.floorIndex) | 0;
+        setHabitacionesPorPiso((prev) => {
+          const next = [...prev];
+          next[idx] = Math.min((next[idx] ?? MIN_ROOMS) + 1, MAX_ROOMS);
+          if (next[idx] === MAX_ROOMS) {
+            toast.info(`Has alcanzado el máximo de habitaciones por piso (${MAX_ROOMS}).`);
+          }
+          return next;
+        });
+      } else if (detail.type === "remove-room") {
+        const idx = Number(detail.floorIndex) | 0;
+        setHabitacionesPorPiso((prev) => {
+          const next = [...prev];
+          next[idx] = Math.max((next[idx] ?? MIN_ROOMS) - 1, MIN_ROOMS);
+          return next;
+        });
+      }
+    };
+    window.addEventListener("building:change", onChange as EventListener);
+    return () => window.removeEventListener("building:change", onChange as EventListener);
+  }, [pisos]);
 
   const handleNext = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -100,7 +144,7 @@ export default function OnboardingForm({ onComplete, onBack }: OnboardingFormPro
         nombre,
         direccion,
         cantidadPisos: pisos,
-        pisoResidenciaDueno: pisoResidencia ?? 0,
+        pisoResidenciaDueno: 0,
       },
       habitacionesPorPiso,
     });
@@ -125,8 +169,7 @@ export default function OnboardingForm({ onComplete, onBack }: OnboardingFormPro
     subHeadingClass,
     labelClass,
     inputClass,
-    selectTriggerClass,
-    selectContentClass,
+    // removed select classes
     separatorClass,
     rightTitleClass,
     rightTextClass,
@@ -148,14 +191,6 @@ export default function OnboardingForm({ onComplete, onBack }: OnboardingFormPro
       : "bg-white/90 border-slate-300 text-slate-900 placeholder:text-slate-400 " +
         "shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur-md";
 
-    const selectTriggerColors = isDark
-      ? "bg-black/40 border-white/20 text-white"
-      : "bg-white/90 border-slate-300 text-slate-900 shadow-[0_10px_30px_rgba(15,23,42,0.08)]";
-
-    const selectContentColors = isDark
-      ? "bg-black/90 border-white/15 text-white"
-      : "bg-white border-slate-200 text-slate-900 shadow-lg";
-
     const separatorColor = isDark ? "bg-white/10" : "bg-slate-200/80";
 
     const rightTitle = isDark ? "text-white" : "text-slate-900";
@@ -174,8 +209,6 @@ export default function OnboardingForm({ onComplete, onBack }: OnboardingFormPro
       subHeadingClass: subHeading,
       labelClass: `${labelBase} ${labelColor}`,
       inputClass: `${inputBase} ${inputColors}`,
-      selectTriggerClass: `${inputBase} ${selectTriggerColors}`,
-      selectContentClass: selectContentColors,
       separatorClass: separatorColor,
       rightTitleClass: rightTitle,
       rightTextClass: rightText,
@@ -184,6 +217,7 @@ export default function OnboardingForm({ onComplete, onBack }: OnboardingFormPro
     };
   }, [isDark]);
 
+        
   // ========= Render =========
 
   return (
@@ -256,43 +290,39 @@ export default function OnboardingForm({ onComplete, onBack }: OnboardingFormPro
                     ({MIN_PISOS}–{MAX_PISOS})
                   </span>
                 </Label>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    aria-label="Quitar piso"
+                    onClick={() => handlePisosChange(pisos - 1)}
+                    className={`rounded-md px-3 py-2 text-sm font-semibold ${isDark ? "bg-white/10 text-white hover:bg-white/20" : "bg-slate-200 text-slate-800 hover:bg-slate-300"}`}
+                  >
+                    −
+                  </button>
                 <Input
                   type="number"
                   min={MIN_PISOS}
                   max={MAX_PISOS}
                   value={pisos}
                   onChange={(e) => handlePisosChange(Number(e.target.value))}
-                  className={inputClass}
+                  className={`${inputClass} w-24 text-center ${shakePisos ? 'border-red-400 ring-2 ring-red-300' : ''}`}
                 />
+                  <button
+                    type="button"
+                    aria-label="Agregar piso"
+                    onClick={() => handlePisosChange(pisos + 1)}
+                    className={`rounded-md px-3 py-2 text-sm font-semibold ${isDark ? "bg-white/10 text-white hover:bg:white/20" : "bg-slate-200 text-slate-800 hover:bg-slate-300"}`}
+                  >
+                    +
+                  </button>
+                  {/* Slider removido por preferencia del usuario */}
+                </div>
+                <p className={`text-[11px] ${isDark ? "text-white/45" : "text-slate-500"}`}>
+                  Máximo permitido: {MAX_PISOS} pisos.
+                </p>
               </div>
 
-              <div className="flex flex-col gap-2">
-                <Label className={labelClass}>Piso donde resides (dueño)</Label>
-                <Select
-                  onValueChange={(v) =>
-                    v === "none"
-                      ? setPisoResidencia(null)
-                      : setPisoResidencia(Number(v))
-                  }
-                  value={
-                    pisoResidencia === null ? "none" : pisoResidencia.toString()
-                  }
-                >
-                  <SelectTrigger className={`w-full ${selectTriggerClass}`}>
-                    <SelectValue placeholder="Selecciona un piso" />
-                  </SelectTrigger>
-                  <SelectContent className={selectContentClass}>
-                    <SelectItem value="none">
-                      No resido en esta propiedad
-                    </SelectItem>
-                    {Array.from({ length: pisos }, (_, i) => (
-                      <SelectItem key={i} value={(i + 1).toString()}>
-                        Piso {i + 1}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Se eliminó la selección de piso de residencia del dueño */}
             </div>
 
             <Button type="submit" className="w-full mt-4 sm:mt-8">
@@ -326,16 +356,38 @@ export default function OnboardingForm({ onComplete, onBack }: OnboardingFormPro
                   >
                     Piso {i + 1}
                   </Label>
-                  <Input
-                    type="number"
-                    min={MIN_ROOMS}
-                    max={MAX_ROOMS}
-                    value={habitacionesPorPiso[i]}
-                    onChange={(e) =>
-                      handleHabitacionChange(i, Number(e.target.value))
-                    }
-                    className={inputClass}
-                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      aria-label="Quitar habitación"
+                      onClick={() => handleHabitacionChange(i, (habitacionesPorPiso[i] ?? MIN_ROOMS) - 1)}
+                      className={`rounded-md px-2 py-1 text-sm font-semibold ${isDark ? "bg-white/10 text-white hover:bg-white/20" : "bg-slate-200 text-slate-800 hover:bg-slate-300"}`}
+                    >
+                      −
+                    </button>
+                    <Input
+                      type="number"
+                      min={MIN_ROOMS}
+                      max={MAX_ROOMS}
+                      value={habitacionesPorPiso[i]}
+                      onChange={(e) =>
+                        handleHabitacionChange(i, Number(e.target.value))
+                      }
+                      className={`${inputClass} w-20 text-center ${shakeRooms[i] ? 'border-red-400 ring-2 ring-red-300' : ''}`}
+                    />
+                    <button
+                      type="button"
+                      aria-label="Agregar habitación"
+                      onClick={() => handleHabitacionChange(i, (habitacionesPorPiso[i] ?? MIN_ROOMS) + 1)}
+                      className={`rounded-md px-2 py-1 text-sm font-semibold ${isDark ? "bg:white/10 text-white hover:bg-white/20" : "bg-slate-200 text-slate-800 hover:bg-slate-300"}`}
+                    >
+                      +
+                    </button>
+                  </div>
+                  {/* Slider por piso removido por preferencia del usuario */}
+                  <span className={`ml-2 text-[11px] ${isDark ? "text-white/45" : "text-slate-500"}`}>
+                    Máx: {MAX_ROOMS}
+                  </span>
                 </div>
               ))}
             </div>
@@ -350,11 +402,7 @@ export default function OnboardingForm({ onComplete, onBack }: OnboardingFormPro
               >
                 ← Volver
               </Button>
-              <Button
-                type="submit"
-                className="w-full sm:w-auto"
-                disabled={isPending}
-              >
+              <Button type="submit" className="w-full sm:w-auto" disabled={isPending}>
                 {isPending ? "Guardando..." : "Finalizar"}
               </Button>
             </div>
@@ -379,11 +427,7 @@ export default function OnboardingForm({ onComplete, onBack }: OnboardingFormPro
 
             <div className="w-full overflow-x-auto md:overflow-visible pb-4">
               <div className="min-w-[560px] flex justify-center lg:justify-end">
-                <BuildingAnimation
-                  pisos={pisos}
-                  habitacionesPorPiso={habitacionesPorPiso}
-                  highlightFloor={pisoResidencia}
-                />
+                <BuildingAnimation pisos={pisos} habitacionesPorPiso={habitacionesPorPiso} />
               </div>
             </div>
           </div>

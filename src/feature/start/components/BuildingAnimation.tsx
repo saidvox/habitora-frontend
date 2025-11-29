@@ -1,11 +1,10 @@
 import * as motion from "motion/react-client";
-import { memo, useMemo } from "react";
+import { memo, useMemo, useState } from "react";
 
 type BuildingAnimationProps = {
   pisos: number; // 1..10
   habitacionesPorPiso: number[]; // cantidad de habitaciones por piso
   className?: string;
-  highlightFloor?: number | null; // 1 = piso más bajo (piso donde vive el dueño)
 };
 
 const MAX_WINDOWS = 8;
@@ -28,8 +27,7 @@ const WINDOW_INDICES = Array.from({ length: MAX_WINDOWS }, (_, i) => i);
 function BuildingAnimationBase({
   pisos,
   habitacionesPorPiso,
-  className = "",
-  highlightFloor = null,
+  className = ""
 }: BuildingAnimationProps) {
   const clampedPisos = Math.min(10, Math.max(1, pisos | 0));
 
@@ -80,6 +78,9 @@ function BuildingAnimationBase({
     }, [clampedPisos, habitacionesPorPiso]);
 
   // =========================================
+  const [hoverFloor, setHoverFloor] = useState<number | null>(null);
+  // Eventos interactivos para modificar pisos y habitaciones
+  // Controles interactivos eliminados del preview
 
   return (
     <div
@@ -89,6 +90,17 @@ function BuildingAnimationBase({
         minHeight: buildingHeight + 40,
       }}
     >
+      {/* Fondo decorativo (cielo suave) */}
+      <motion.div
+        className="pointer-events-none absolute inset-0 -z-20 rounded-[40px]"
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(205,215,235,0.25), rgba(60,70,85,0.10))",
+        }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.6, ease: EASING }}
+      />
       {/* Glow suave debajo */}
       <motion.div
         className="pointer-events-none absolute rounded-[40px] -z-10"
@@ -99,7 +111,7 @@ function BuildingAnimationBase({
           right: 0,
           background:
             "radial-gradient(60% 60% at 50% 50%, rgba(0,0,0,0.55), rgba(0,0,0,0))",
-          filter: "blur(30px)",
+          filter: "blur(32px)",
         }}
         initial={{ opacity: 0.2 }}
         animate={{ opacity: 0.35 }}
@@ -156,13 +168,17 @@ function BuildingAnimationBase({
         />
       </motion.div>
 
+      {/* Header con nombre/dirección eliminado por preferencia de diseño */}
+
       {/* Cuerpo del edificio */}
       <motion.div
         className="relative rounded-[28px] bg-gradient-to-b from-[#171b23] via-[#10141b] to-[#06070a] shadow-[0_25px_80px_rgba(0,0,0,0.55)] ring-1 ring-white/8 overflow-hidden"
-        style={{ width: BUILDING_WIDTH, height: buildingHeight }}
-        initial={{ opacity: 0, y: 14, scale: 0.985 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
+        style={{ width: BUILDING_WIDTH, transformStyle: "preserve-3d" }}
+        initial={{ opacity: 0, y: 14, scale: 0.985, rotateX: 0, height: buildingHeight }}
+        animate={{ opacity: 1, y: 0, scale: 1, rotateX: hoverFloor ? 1.5 : 0, height: buildingHeight }}
         transition={{ duration: 0.5, ease: EASING }}
+        layout
+        layoutRoot
       >
         {/* Bordes y luces laterales */}
         <div className="pointer-events-none absolute inset-0">
@@ -195,34 +211,38 @@ function BuildingAnimationBase({
               .reverse()
               .map((floorNumber, indexFromTop) => {
                 const litCount = windowsByFloor.get(floorNumber) ?? 1;
-                const isOwnerFloor = highlightFloor === floorNumber;
+                const isOwnerFloor = false;
 
-                const ownerBaseCount = Math.max(litCount, 1);
-                const ownerWindowIndex = isOwnerFloor
-                  ? Math.floor((ownerBaseCount - 1) / 2)
-                  : null;
+                // Removed owner-floor specific indices
 
+                const isHover = hoverFloor === floorNumber;
                 return (
                   <motion.div
                     key={floorNumber}
-                    className="relative flex items-center rounded-xl bg-white/[0.03] border border-white/[0.05] px-4"
+                    className="relative flex items-center rounded-xl bg-white/[0.03] border border-white/[0.05] px-4 cursor-pointer"
                     style={{
                       height: floorHeight,
                       boxShadow:
                         "inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -1px 0 rgba(0,0,0,0.45)",
                     }}
                     initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
+                    animate={{ opacity: 1, y: 0, scale: isHover ? 1.01 : 1, height: floorHeight }}
                     transition={{
                       duration: 0.4,
                       delay: 0.04 + indexFromTop * 0.04,
                       ease: EASING,
                     }}
+                    layout
+                    title={`Piso ${floorNumber} • ${litCount} habitaciones`}
+                    onMouseEnter={() => setHoverFloor(floorNumber)}
+                    onMouseLeave={() => setHoverFloor(null)}
                   >
                     {/* Número de piso */}
                     <div className="absolute -left-7 top-1/2 -translate-y-1/2 text-[12px] font-semibold text-white/70 select-none">
                       {floorNumber}
                     </div>
+
+                    {/* Controles por piso eliminados (se usarán en el formulario) */}
 
                     {/* Resalte piso del dueño */}
                     {isOwnerFloor && (
@@ -233,20 +253,21 @@ function BuildingAnimationBase({
                             "radial-gradient(120% 220% at 50% 50%, rgba(255,255,255,0.16), rgba(0,0,0,0))",
                         }}
                         initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
+                        animate={{ opacity: isHover ? 1 : 0.85 }}
                         transition={{ duration: 0.4 }}
                       />
                     )}
+                    {/* Eliminados elementos específicos del piso de residencia */}
 
                     {/* Ventanas */}
-                    <div
+                    <motion.div
                       className="flex w-full h-full items-center justify-center"
                       style={{ columnGap: WINDOW_GAP }}
+                      layout
                     >
                       {WINDOW_INDICES.map((colIndex) => {
                         const isOn = colIndex < litCount;
-                        const isOwnerWindow =
-                          isOwnerFloor && ownerWindowIndex === colIndex;
+                        const isOwnerWindow = false;
 
                         const background = isOwnerWindow
                           ? "linear-gradient(180deg, rgba(255,240,200,0.98), rgba(255,210,140,0.9))"
@@ -288,6 +309,7 @@ function BuildingAnimationBase({
                                 repeat: Infinity,
                                 ease: [0.42, 0, 0.58, 1],
                               }}
+                              layout
                             >
                               <div className="w-full h-1/3 bg-white/10" />
                             </motion.div>
@@ -313,8 +335,8 @@ function BuildingAnimationBase({
                             }
                             animate={
                               isOn
-                                ? { scale: 1, opacity: 1, y: 0 }
-                                : { scale: 0.9, opacity: 0.45, y: 0 }
+                                ? { scale: 1, opacity: isHover ? 1 : 0.98, y: 0 }
+                                : { scale: 0.9, opacity: isHover ? 0.55 : 0.45, y: 0 }
                             }
                             transition={{
                               duration: 0.3,
@@ -322,18 +344,21 @@ function BuildingAnimationBase({
                                 0.08 + colIndex * 0.04 + indexFromTop * 0.03,
                               ease: EASING,
                             }}
+                            layout
                           >
                             <div className="w-full h-1/3 bg-white/10" />
                           </motion.div>
                         );
                       })}
-                    </div>
+                    </motion.div>
                   </motion.div>
                 );
               })}
           </div>
         </div>
       </motion.div>
+      {/* Etiqueta de ayuda */}
+      {/* Eliminado consejo de seleccionar piso */}
     </div>
   );
 }
