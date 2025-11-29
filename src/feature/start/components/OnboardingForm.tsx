@@ -25,7 +25,12 @@ const MAX_PISOS = 10;
 const MIN_ROOMS = 1;
 const MAX_ROOMS = 8;
 
-export default function OnboardingForm() {
+type OnboardingFormProps = {
+  onComplete?: () => void;
+  onBack?: () => void;
+};
+
+export default function OnboardingForm({ onComplete, onBack }: OnboardingFormProps) {
   const [step, setStep] = useState<1 | 2>(1);
 
   const [nombre, setNombre] = useState("");
@@ -45,7 +50,11 @@ export default function OnboardingForm() {
       try {
         sessionStorage.removeItem('habitora-new-user');
       } catch {}
-      navigate("/start");
+      if (onComplete) {
+        onComplete();
+      } else {
+        navigate("/start");
+      }
     },
     onError: () => {
       toast.error("No se pudo completar el registro de la propiedad.");
@@ -102,7 +111,11 @@ export default function OnboardingForm() {
     try {
       sessionStorage.removeItem('habitora-new-user');
     } catch {}
-    navigate("/start");
+    if (onBack) {
+      onBack();
+    } else {
+      navigate("/start");
+    }
   };
 
   // ========= Clases dependientes del tema (memo) =========

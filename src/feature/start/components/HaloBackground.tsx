@@ -1,7 +1,7 @@
 // src/feature/start/components/HaloBackground.tsx
 import { useEffect, useRef } from "react";
-import * as motion from "motion/react-client";
 import { useTheme } from "@/components/theme-provider";
+import { useHaloMotionStore } from "@/store/useHaloMotionStore";
 
 type Halo = {
   color: string;
@@ -13,6 +13,15 @@ type Halo = {
 export default function HaloBackground() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const { theme } = useTheme(); // "light" | "dark" | "system"
+
+  // Guardaremos el factor de velocidad en un ref mediante subscribe
+  const speedRef = useRef(1);
+  useEffect(() => {
+    const unsub = useHaloMotionStore.subscribe((s) => {
+      speedRef.current = s.speedFactor;
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -75,8 +84,10 @@ export default function HaloBackground() {
 
     const render = () => {
       frameId = requestAnimationFrame(render);
-      t += 0.01;
-      driftTimer += 0.001;
+      // Leer velocidad actual sin reiniciar efecto
+      const currentSpeed = speedRef.current;
+      t += 0.01 * currentSpeed;
+      driftTimer += 0.001 * currentSpeed;
 
       // Ajustar tamaños de halos a ancho actual
       halos[0].size = w * 0.9;
@@ -99,7 +110,8 @@ export default function HaloBackground() {
       halos.forEach((halo, i) => {
         ctx.save();
         ctx.translate(baseX, baseY);
-        ctx.rotate(Math.sin(t * 0.15 + i) * 0.4);
+        // Invertir ligero la rotación en modo reversa para sensación de "retroceder"
+        ctx.rotate(Math.sin(t * 0.15 * currentSpeed + i) * 0.4);
 
         const gradient = ctx.createRadialGradient(0, 0, 200, 0, 0, halo.size);
 
@@ -117,8 +129,10 @@ export default function HaloBackground() {
         ctx.fillStyle = gradient;
 
         ctx.beginPath();
-        const amplitude = 140 + Math.sin(t * halo.speed + halo.offset) * 60;
-        const offsetY = Math.sin(t * halo.speed * 0.8 + halo.offset) * 50;
+        // Escalar ligeramente amplitud durante aceleración para sensación de "viaje"
+        const travelBoost = 1 + (currentSpeed - 1) * 0.35; // limitar exageración
+        const amplitude = (140 + Math.sin(t * halo.speed + halo.offset) * 60) * travelBoost;
+        const offsetY = Math.sin(t * halo.speed * 0.8 + halo.offset) * 50 * travelBoost;
 
         ctx.moveTo(-w * 1.2, offsetY);
         for (let x = -w * 1.2; x < w * 1.2; x += 40) {
@@ -146,16 +160,12 @@ export default function HaloBackground() {
       window.removeEventListener("resize", resize);
       cancelAnimationFrame(frameId);
     };
+  // Solo depender del tema para evitar reinicios por velocidad
   }, [theme]);
 
   return (
-    <motion.div
-      className="pointer-events-none fixed inset-0 z-0"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
-    >
+    <div className="pointer-events-none fixed inset-0 z-0">
       <canvas ref={canvasRef} className="w-full h-full" />
-    </motion.div>
+    </div>
   );
 }

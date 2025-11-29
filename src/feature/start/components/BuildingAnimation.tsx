@@ -160,9 +160,9 @@ function BuildingAnimationBase({
       <motion.div
         className="relative rounded-[28px] bg-gradient-to-b from-[#171b23] via-[#10141b] to-[#06070a] shadow-[0_25px_80px_rgba(0,0,0,0.55)] ring-1 ring-white/8 overflow-hidden"
         style={{ width: BUILDING_WIDTH, height: buildingHeight }}
-        initial={{ opacity: 0, y: 18, scale: 0.97 }}
+        initial={{ opacity: 0, y: 14, scale: 0.985 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.6, ease: EASING }}
+        transition={{ duration: 0.5, ease: EASING }}
       >
         {/* Bordes y luces laterales */}
         <div className="pointer-events-none absolute inset-0">
@@ -211,11 +211,11 @@ function BuildingAnimationBase({
                       boxShadow:
                         "inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -1px 0 rgba(0,0,0,0.45)",
                     }}
-                    initial={{ opacity: 0, y: 14 }}
+                    initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{
-                      duration: 0.45,
-                      delay: 0.05 + indexFromTop * 0.05,
+                      duration: 0.4,
+                      delay: 0.04 + indexFromTop * 0.04,
                       ease: EASING,
                     }}
                   >

@@ -3,10 +3,13 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { Plus, Building2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import Spinner from "@/components/spinner";
 import { Button } from "@/components/ui/button";
 import { useUsuarioPropiedades } from "../hooks/useUsuarioPropiedades";
 import { useCurrentPropertyStore } from "@/store/useCurrentPropertyStore";
+import { useHaloMotionStore } from "@/store/useHaloMotionStore";
+import OnboardingForm from "../components/OnboardingForm";
 
 type PropiedadCard = {
   id: number;
@@ -19,6 +22,8 @@ type PropiedadCard = {
 export default function StartPage() {
   const navigate = useNavigate();
   const [selected, setSelected] = useState<number | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   const setCurrentProperty = useCurrentPropertyStore(
     (state) => state.setCurrentProperty
@@ -55,20 +60,58 @@ export default function StartPage() {
 
   const handleClick = useCallback(
     (propiedad: PropiedadCard) => {
+      if (isTransitioning) return; // Evitar clicks múltiples durante transición
+      
       setSelected(propiedad.id);
-
-      setTimeout(() => {
-        if (propiedad.nueva) {
-          navigate("/onboarding");
-          return;
+      if (propiedad.nueva) {
+        // Acelerar SOLO durante la transición, luego volver a velocidad normal
+        setIsTransitioning(true);
+        const store = useHaloMotionStore.getState();
+        // Cancelar animación activa si existe
+        if (store._animId) {
+          cancelAnimationFrame(store._animId);
+          useHaloMotionStore.setState({ _animId: undefined, speedFactor: 1 });
         }
-
+        // Acelerar temporalmente: sube, mantiene brevemente, baja a normal
+        // Total: 1200ms (400 subida + 400 hold + 400 bajada)
+        setTimeout(() => {
+          store.accelerate(2, 1200, 400);
+        }, 50);
+        setShowOnboarding(true);
+        setTimeout(() => setIsTransitioning(false), 400);
+        return;
+      }
+      setTimeout(() => {
         setCurrentProperty(propiedad.id, propiedad.nombre);
         navigate(`/app/${propiedad.id}`);
       }, 250);
     },
-    [navigate, setCurrentProperty]
+    [navigate, setCurrentProperty, isTransitioning]
   );
+
+  const handleOnboardingComplete = useCallback(() => {
+    // También resetear velocidad al completar
+    const store = useHaloMotionStore.getState();
+    if (store._animId) {
+      cancelAnimationFrame(store._animId);
+    }
+    useHaloMotionStore.setState({ _animId: undefined, speedFactor: 1 });
+    setShowOnboarding(false);
+    setIsTransitioning(false);
+    navigate("/start");
+  }, [navigate]);
+
+  const handleOnboardingBack = useCallback(() => {
+    // Reset simple a velocidad normal
+    const store = useHaloMotionStore.getState();
+    if (store._animId) {
+      cancelAnimationFrame(store._animId);
+      useHaloMotionStore.setState({ _animId: undefined });
+    }
+    useHaloMotionStore.setState({ speedFactor: 1 });
+    setShowOnboarding(false);
+    setIsTransitioning(false);
+  }, []);
 
   // -----------------------------------------
   // ⭐ ANIMACIÓN SUAVE AL VOLVER A INICIO
@@ -105,8 +148,30 @@ export default function StartPage() {
     );
   }
 
+  const easing: [number, number, number, number] = [0.22, 1, 0.36, 1];
+
   return (
-    <main className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden text-center text-slate-900 dark:text-white">
+    <AnimatePresence mode="wait">
+      {showOnboarding ? (
+        <motion.div
+          key="onboarding"
+          initial={{ opacity: 0, x: 120, scale: 0.98 }}
+          animate={{ opacity: 1, x: 0, scale: 1 }}
+          exit={{ opacity: 0, x: 120 }}
+          transition={{ duration: 0.36, ease: easing }}
+          className="w-full"
+        >
+          <OnboardingForm onComplete={handleOnboardingComplete} onBack={handleOnboardingBack} />
+        </motion.div>
+      ) : (
+        <motion.main
+          key="selector"
+          initial={{ opacity: 0, x: -120 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -120 }}
+          transition={{ duration: 0.36, ease: easing }}
+          className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden text-center text-slate-900 dark:text-white"
+        >
       <h2 className="text-3xl md:text-4xl font-bold mb-12 drop-shadow-[0_3px_12px_rgba(0,0,0,0.25)]">
         Elige una propiedad para gestionar
       </h2>
@@ -183,6 +248,8 @@ export default function StartPage() {
           Ir a Inicio
         </Button>
       </div>
-    </main>
+        </motion.main>
+      )}
+    </AnimatePresence>
   );
 }
