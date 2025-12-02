@@ -5,16 +5,16 @@ import { useHaloMotionStore } from "@/store/useHaloMotionStore";
 // =========================================================
 // VARIABLES GLOBALES (Solución Nuclear)
 // =========================================================
-let globalFlow = 0;      // Controla el desplazamiento (Acelera con el store)
-let globalBreath = 0;    // Controla la "respiración"/altura (SIEMPRE CONSTANTE)
-let globalDrift = 0;     // Temporizador dirección
+let globalFlow = 0;      // Controla el desplazamiento horizontal (EL ÚNICO QUE ACELERA)
+let globalBreath = 0;    // Controla la respiración suave (SIEMPRE CONSTANTE)
+let globalDrift = 0;     // Dirección aleatoria
 let gDirectionX = 0.25;
 let gDirectionY = 0.15;
 
 type Halo = {
   color: string;
   size: number;
-  speed: number; // Velocidad base de este halo
+  speed: number;
   offset: number;
 };
 
@@ -24,7 +24,6 @@ function HaloBackground() {
 
   const speedRef = useRef(1);
 
-  // 1. Suscribirse a la velocidad (Zustand)
   useEffect(() => {
     const unsub = useHaloMotionStore.subscribe((s) => {
       speedRef.current = s.speedFactor;
@@ -32,7 +31,6 @@ function HaloBackground() {
     return () => unsub();
   }, []);
 
-  // 2. Lógica del Canvas
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -47,7 +45,6 @@ function HaloBackground() {
 
     const isDark = theme === "dark";
 
-    // Halos: Aumenté un poco la "speed" base para que se note más el efecto warp
     const halos: Halo[] = isDark
       ? [
         { color: "rgba(80, 80, 80, 0.25)", size: 0, speed: 0.02, offset: Math.random() * 1000 },
@@ -86,20 +83,17 @@ function HaloBackground() {
       frameId = requestAnimationFrame(render);
       const currentSpeed = speedRef.current;
 
-      // ---------------------------------------------
-      // 🔴 AQUÍ ESTÁ LA CORRECCIÓN CLAVE
-      // ---------------------------------------------
+      // -----------------------------------------------------------
+      // CORRECCIÓN FINAL:
+      // 1. globalFlow: Acelera, pero con un factor pequeño (0.01) para que sea suave.
+      globalFlow += 0.01 * currentSpeed;
 
-      // 1. globalFlow (EL VIAJE): Se multiplica por currentSpeed.
-      // Esto hace que las ondas pasen rápido (efecto túnel).
-      globalFlow += 0.02 * currentSpeed;
+      // 2. globalBreath: TOTALMENTE CONSTANTE.
+      // Eliminamos cualquier suma de 'currentSpeed'. 
+      // La altura de la onda NUNCA cambiará por la velocidad.
+      globalBreath += 0.003;
+      // -----------------------------------------------------------
 
-      // 2. globalBreath (LA FORMA): Es CONSTANTE.
-      // No importa si currentSpeed es 100, esto suma 0.005.
-      // Evita que la onda "se abra y cierre" a lo loco.
-      globalBreath += 0.005;
-
-      // Drift (dirección) también constante o muy lento
       globalDrift += 0.001;
       if (globalDrift > 10) {
         gDirectionX = (Math.random() - 0.5) * 0.6;
@@ -115,7 +109,6 @@ function HaloBackground() {
       ctx.fillStyle = bgGradient!;
       ctx.fillRect(0, 0, w, h);
 
-      // Usamos globalBreath para el movimiento del centro (suave)
       const baseX = w / 2 + Math.sin(globalBreath * 0.1) * 100 * gDirectionX;
       const baseY = h / 2 + Math.cos(globalBreath * 0.1) * 100 * gDirectionY;
 
@@ -123,7 +116,7 @@ function HaloBackground() {
         ctx.save();
         ctx.translate(baseX, baseY);
 
-        // Rotación suave (depende de breath, no de velocidad)
+        // Rotación constante y lenta
         ctx.rotate(Math.sin(globalBreath * 0.15 + i) * 0.4);
 
         const gradient = ctx.createRadialGradient(0, 0, 200, 0, 0, halo.size);
@@ -137,27 +130,23 @@ function HaloBackground() {
           gradient.addColorStop(0.35, "rgba(0, 0, 0, 0.04)");
           gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
         }
-
         ctx.fillStyle = gradient;
         ctx.beginPath();
 
-        // TravelBoost: Hacemos la onda un poco más grande al acelerar,
-        // pero NO cambiamos la frecuencia de la amplitud.
-        const travelBoost = 1 + (currentSpeed - 1) * 0.2;
+        // -----------------------------------------------------------
+        // ZONA DE SEGURIDAD VISUAL
+        // Eliminamos la variable 'travelBoost'. No existe.
+        // La amplitud es fija, basada solo en la respiración lenta.
+        // -----------------------------------------------------------
+        const amplitude = (140 + Math.sin(globalBreath + halo.offset) * 60);
 
-        // 🔴 AMPLITUD (ALTURA): Usa 'globalBreath' (Lento y constante)
-        // Esto define qué tan "abierta" está la onda. Al ser lento, no parpadea.
-        const amplitude = (140 + Math.sin(globalBreath + halo.offset) * 60) * travelBoost;
-
-        // 🔴 OFFSET VERTICAL: También usa 'globalBreath' para flotar suave.
+        // El offset vertical también es fijo.
         const offsetY = Math.sin(globalBreath * 0.8 + halo.offset) * 50;
 
         ctx.moveTo(-w * 1.2, offsetY);
-
-        // BUCLE DE DIBUJO
         for (let x = -w * 1.2; x < w * 1.2; x += 40) {
-          // 🔴 EL FLUJO: Aquí usamos 'globalFlow' (Rápido)
-          // Esto mueve la textura de la onda horizontalmente.
+          // Solo 'globalFlow' (que tiene la velocidad) afecta la posición X.
+          // Esto crea el efecto de "corriente rápida" sin inflar la onda.
           const y =
             Math.sin(x * 0.002 + globalFlow * halo.speed + halo.offset) * amplitude +
             Math.sin(x * 0.001 + globalFlow * halo.speed * 1.3 + halo.offset) * amplitude * 0.3 +

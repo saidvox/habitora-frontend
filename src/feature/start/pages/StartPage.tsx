@@ -78,10 +78,10 @@ export default function StartPage() {
         // Significado: "Vete a velocidad 20x, en 1 segundo total, subiendo rápido (200ms)"
         // ---------------------------------------------------------
         setTimeout(() => {
-          // Velocidad 25: Suficiente para notar el viaje, sin ser caótico.
-          // 1800ms: Dura casi 2 segundos, da tiempo de disfrutarlo.
-          // 800ms: Tarda casi un segundo entero en llegar al máximo y otro en bajar.
-          store.accelerate(25, 1800, 800);
+          // Velocidad 16: Se siente el impulso lateral.
+          // 1400ms: Duración adecuada.
+          // 700ms: Rampa perfectamente simétrica (subida/bajada suave).
+          store.accelerate(16, 1400, 700);
         }, 50);
         setShowOnboarding(true);
         // Ajustamos esto para que coincida con la duración de la animación
