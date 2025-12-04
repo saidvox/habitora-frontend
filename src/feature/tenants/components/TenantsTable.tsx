@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Users } from "lucide-react";
 import { useTenantsQuery } from "../hooks/queries/useTenantsQuery";
-import type { Tenant } from "../types";
+import type { Tenant } from "../types/tenants.types";
 
 import {
   Table, TableBody, TableCell, TableHead,
