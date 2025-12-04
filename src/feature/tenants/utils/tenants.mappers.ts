@@ -1,4 +1,4 @@
-import type { Tenant } from "../types";
+import type { Tenant } from "../types/tenants.types";
 import type { TenantDTO } from "../schemas/tenants.schema";
 
 export function mapTenant(dto: TenantDTO): Tenant {

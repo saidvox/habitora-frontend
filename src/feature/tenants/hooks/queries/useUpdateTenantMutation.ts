@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { updateTenant } from "../../api/tenants.api";
-import type { UpdateTenantPayload, Tenant } from "../../types";
+import type { UpdateTenantPayload, Tenant } from "../../types/tenants.types";
 
 export function useUpdateTenantMutation(
     propiedadId: number,

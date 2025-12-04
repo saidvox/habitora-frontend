@@ -4,7 +4,7 @@ import type {
     Tenant,
     CreateTenantPayload,
     UpdateTenantPayload,
-} from "../types";
+} from "../types/tenants.types";
 
 export async function getTenantsByProperty(propiedadId: number): Promise<Tenant[]> {
     const { data } = await axiosInstance.get(`/api/propiedades/${propiedadId}/inquilinos`);
